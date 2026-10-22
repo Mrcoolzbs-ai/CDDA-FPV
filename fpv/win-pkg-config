@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+: "${SDK_PREFIX:?SDK_PREFIX is required}"
+export PKG_CONFIG_LIBDIR="$SDK_PREFIX/lib/pkgconfig"
+export PKG_CONFIG_PATH=
+exec pkg-config "$@"
