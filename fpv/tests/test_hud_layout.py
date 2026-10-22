@@ -5,7 +5,7 @@ Needs Python 3, msgfmt and a C++17 compiler. Does not launch the game or validat
 from pathlib import Path
 import gettext, json, os, re, subprocess, tempfile
 root = Path(__file__).resolve().parents[2]
-source = (root / 'src/sdltiles.cpp').read_text()
+source = (root / 'src/sdltiles.cpp').read_text(encoding='utf-8')
 a = source.index('void draw_first_person_hud(')
 hud = source[a:source.index('#if defined(__ANDROID__)', a)]
 with tempfile.TemporaryDirectory(prefix='cdda-fpv-hud-') as tmp:
@@ -105,6 +105,6 @@ int main() {
 }
 '''
     cpp = tmp / 'test.cpp'
-    cpp.write_text(prefix + hud + main)
+    cpp.write_text(prefix + hud + main, encoding='utf-8')
     subprocess.run([os.environ.get('CXX','c++'), '-std=c++17', '-O1', str(cpp), '-o', str(tmp/'test')], check=True)
     subprocess.run([str(tmp/'test')], check=True)
