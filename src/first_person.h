@@ -8,6 +8,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -124,6 +126,26 @@ inline std::vector<std::string> inventory_labels, cell_labels;
 inline int selected_row=-1, selected_side=0, inventory_page=0, cell_page=0;
 inline bool cell_reachable=false;
 inline std::string inventory_notice;
+struct body_status { std::string name; int hp=0, maximum=0; std::vector<std::string> equipment; std::string key; };
+inline std::vector<body_status> body_statuses;
+inline int body_selection=0, inventory_tab=0, pointer_x=0, pointer_y=0;
+inline bool morale_hover=false;
+inline int morale_scroll=0;
+inline int morale_level=0;
+inline std::vector<std::pair<std::string,int>> morale_entries;
+inline std::string item_details;
+inline std::string current_action_label;
+// Opaque stable identity, never the label or a reused screen/depth-buffer index.
+inline std::string gaze_key;
+inline std::map<std::string,std::string> repeated_actions;
+inline std::string repeat_action(const std::string &key) {
+    const auto i=repeated_actions.find(key);return i==repeated_actions.end()?"interact":i->second;
+}
+inline void remember_action(const std::string &key,const std::string &action) {
+    if(key.empty())return;
+    if(repeated_actions.size()>512)repeated_actions.clear();
+    repeated_actions[key]=action;
+}
 inline int pick(int x,int y) {
     if(viewport_w<=0 || viewport_h<=0 || x<viewport_x || y<viewport_y ||
        x>=viewport_x+viewport_w || y>=viewport_y+viewport_h) { return -1; }

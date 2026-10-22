@@ -3517,6 +3517,7 @@ class Character : public Creature, public visitable
         void modify_morale( item &food, int nutr = 0 );
         // Modified by traits, &c
         int get_morale_level() const;
+        std::vector<std::pair<std::string,int>> get_morale_entries() const;
         void add_morale( const morale_type &type, int bonus, int max_bonus = 0,
                          const time_duration &duration = 1_hours,
                          const time_duration &decay_start = 30_minutes, bool capped = false,

@@ -1,0 +1,47 @@
+name: FPV Windows x64
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['src/**', 'fpv/**', 'lang/po/ru.po', '.github/workflows/fpv-windows.yml']
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            make git python gettext
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image
+            mingw-w64-x86_64-SDL2_mixer mingw-w64-x86_64-SDL2_ttf
+            mingw-w64-x86_64-freetype mingw-w64-x86_64-gettext
+            mingw-w64-x86_64-zlib
+      - name: Build localized game
+        run: |
+          make -j3 NATIVE=win64 MSYS2=1 TILES=1 SOUND=1 LOCALIZE=1 BUILD_PREFIX=ru- RELEASE=1 OPTLEVEL=-O1 BACKTRACE=0 DYNAMIC_LINKING=1 LINTJSON=0 ASTYLE=0 TESTS=0 PCH=1 CXX_WARNINGS=-w
+          make -C lang LANGUAGES=ru
+      - name: Renderer and scene tests
+        run: |
+          g++ -std=c++17 -O1 fpv/tests/test_renderer.cpp -o test-renderer.exe
+          ./test-renderer.exe
+          g++ -std=c++17 -O1 fpv/tests/test_scene.cpp -o test-scene.exe
+          ./test-scene.exe
+          python fpv/tests/test_hud_layout.py
+      - name: Package portable build
+        run: python fpv/tools/package_windows.py --exe ru-cataclysm-tiles.exe --dll-dir /mingw64/bin --output dist/CDDA-FPV-0.6.0-RU-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CDDA-FPV-0.6.0-RU-Windows-x64
+          path: dist/*.zip
+          compression-level: 0
+          retention-days: 30

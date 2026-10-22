@@ -9,7 +9,7 @@
   },
   {
     "name": "FPV_RANGE",
-    "value": "32"
+    "value": "0"
   },
   {
     "name": "SOUND_ENABLED",

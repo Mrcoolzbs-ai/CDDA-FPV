@@ -2566,6 +2566,11 @@ bool game::handle_mouseview( input_context &ctxt, std::string &action )
     std::optional<tripoint_bub_ms> liveview_pos;
 
     do {
+#if defined(TILES)
+        if(first_person::enabled && !first_person::pending_action.empty())
+            action=std::exchange(first_person::pending_action,std::string{});
+        else
+#endif
         action = ctxt.handle_input();
 #if defined(TILES)
         if( first_person::enabled ) {

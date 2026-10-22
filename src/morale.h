@@ -7,6 +7,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <utility>
 
 #include "calendar.h"
 #include "type_id.h"
@@ -41,6 +42,8 @@ class player_morale
         void clear();
         /** Returns overall morale level */
         int get_level() const;
+        // Display snapshots: decayed values with temperament, like the native morale screen.
+        std::vector<std::pair<std::string,int>> get_entries() const;
         /** Ticks down morale counters and removes them */
         void decay( const time_duration &ticks = 1_turns );
         /** Displays morale screen */

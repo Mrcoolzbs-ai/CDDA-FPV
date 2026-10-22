@@ -29,6 +29,25 @@ int main(int argc,char **argv) {
  r.transparent_quad({{{0,-1,.1},{1,-1,.1},{1,-1,2.8},{0,-1,2.8}}},0,20,.4,&smoke,1,false);
  r.finish_transparency();check(r.center_object()==7,"smoke never steals underlying target");
  check(r.pixels!=opaque,"smoke blends over scene");
+ for(const char *id:{"f_firering","f_fireplace","f_brazier"}) {
+  r.begin(320,200,c);model m{r,{.5,-1,0},0,1,4};
+  check(m.furniture(id,nullptr,true)<.18,"fire ring must not become table");
+  check(std::count(r.object.begin(),r.object.end(),4)>0,"fire ring geometry rendered");
+ }
+ for(bool bush:{false,true}) {
+  const auto plant=vegetation_sprite(bush,42);
+  check(std::any_of(plant.pixels.begin(),plant.pixels.end(),[](unsigned p){return p==0;}),"plant has transparent background");
+  check(std::any_of(plant.pixels.begin(),plant.pixels.end(),[](unsigned p){return p>>24==255;}),"plant has opaque leaves");
+ }
+ check(std::all_of(water_texture().pixels.begin(),water_texture().pixels.end(),[](unsigned p){return p>>24==255;}),"water material covers entire pool");
+ repeated_actions.clear();
+ check(repeat_action("monster:1")=="interact","new target defaults to interaction");
+ remember_action("monster:1","attack");
+ check(repeat_action("monster:1")=="attack","same target repeats attack");
+ check(repeat_action("monster:2")=="interact","action never transfers to another monster");
+ remember_action("monster:1","interact");
+ check(repeat_action("monster:1")=="interact","new selection replaces last action");
+ remember_action("","attack");check(repeat_action("")=="interact","empty gaze never remembers attack");
  if(argc>1) {
   r.begin(640,400,c);draw_sky(r,.4,.9,.7,12);
   r.quad({{{-10,-20,0},{10,-20,0},{10,5,0},{-10,5,0}}},nullptr,0xff5c6655,.8,false,1);

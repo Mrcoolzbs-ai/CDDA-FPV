@@ -2391,6 +2391,16 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                     }
                     dest_delta = dest_next;
                 }
+#if defined(TILES)
+                if(first_person::enabled) {
+                    const auto target_pos=player_character.pos_bub(here)+tripoint_rel_ms(dest_delta,0);
+                    const Creature *c=get_creature_tracker().creature_at(target_pos,true);
+                    if(c && c!=&player_character && player_character.sees(here,*c)) {
+                        first_person::target t{c->get_name(),target_pos.x(),target_pos.y(),target_pos.z(),true};
+                        first_person::remember_action(first_person::target_key(t),"attack");
+                    }
+                }
+#endif
                 if( !avatar_action::move( player_character, here, tripoint_rel_ms( dest_delta, 0 ) ) ) {
                     // auto-move should be canceled due to a failed move or obstacle
                     player_character.abort_automove();
@@ -2591,10 +2601,22 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                 else if(cmd=="close") { inventory_open=false; }
                 else if(cmd=="context") {
                     inventory_open=true; inventory_page=cell_page=0; selected_row=-1; inventory_notice.clear();
-                } else if(cmd.rfind("row:",0)==0) {
-                    const size_t colon=cmd.find(':',4);
-                    selected_side=std::stoi(cmd.substr(4,colon-4));
+                } else if(cmd.rfind("tab:",0)==0) { inventory_tab=std::stoi(cmd.substr(4));
+                } else if(cmd.rfind("body:",0)==0) { body_selection=std::stoi(cmd.substr(5));
+                } else if(cmd=="morale") { inventory_open=false;player_character.disp_morale();
+                } else if(cmd.rfind("row:",0)==0 || cmd.rfind("activate:",0)==0 || cmd.rfind("itemcontext:",0)==0) {
+                    const size_t start=cmd.find(':')+1,colon=cmd.find(':',start);
+                    selected_side=std::stoi(cmd.substr(start,colon-start));
                     selected_row=std::stoi(cmd.substr(colon+1));
+                    const auto &locations=selected_side==0?inventory_locations:cell_locations;
+                    selected_item=selected_row>=0 && selected_row<static_cast<int>(locations.size())?locations[selected_row]:item_location{};
+                    if(selected_item && cmd.rfind("activate:",0)==0 &&
+                       !selected_item->get_contents().get_all_standard_pockets().empty())toggle_container(selected_item);
+                    else if(selected_item && cmd.rfind("row:",0)!=0) {
+                        if((selected_side==0 || cell_reachable) && item_accessible(selected_item)) {
+                            inventory_open=false;inventory_item_menu(selected_item);
+                        } else inventory_notice=pgettext("fpv","Cell is out of reach or its container is sealed.");
+                    }
                 } else if(cmd=="prev0") { inventory_page=std::max(0,inventory_page-1); }
                 else if(cmd=="next0") { ++inventory_page; }
                 else if(cmd=="prev1") { cell_page=std::max(0,cell_page-1); }
@@ -2627,7 +2649,9 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                             inventory_notice=pgettext("fpv", "Cell is out of reach or its container is sealed.");
                         } else {
                             item_location loc=locations[selected_row];
-                            if(cmd=="take" && selected_side==1) {
+                            if(cmd=="expand")toggle_container(loc);
+                            else if(cmd=="item_menu") { inventory_open=false;inventory_item_menu(loc); }
+                            else if(cmd=="take" && selected_side==1) {
                                 player_character.pick_up(drop_locations{{loc,0}}); inventory_open=false;
                             } else if(cmd=="put" && selected_side==0) {
                                 if(cell_reachable && !here.has_flag(ter_furn_flag::TFLAG_NOITEM,p)) {
@@ -3245,42 +3269,65 @@ bool game::handle_action()
                act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_PICKUP || act==ACTION_PICKUP_ALL ||
                act==ACTION_OPEN || act==ACTION_CLOSE || act==ACTION_SMASH) {
                 using namespace first_person;
-                if(!select_target(gaze_id)) {
-                    add_msg(m_info,pgettext("fpv","No visible target under the crosshair."));
-                    return false;
-                }
-                const auto p=cell_position();
-                const bool reachable=can_reach(player_character,here,p);
+                const bool has_target=select_target(gaze_id);
+                const auto p=has_target?cell_position():player_character.pos_bub(here);
+                const bool reachable=has_target && can_reach(player_character,here,p);
                 inventory_open=false;selected_row=-1;
+                std::string chosen;
                 if(act==ACTION_FPV_CONTEXT) {
-                    uilist menu;menu.text=selected_target.label;
+                    uilist menu;menu.text=has_target?selected_target.label:pgettext("fpv","Actions");
                     menu.addentry(0,reachable,'e',pgettext("fpv","Interact"));
                     menu.addentry(1,reachable,'g',pgettext("fpv","Pick up"));
                     menu.addentry(2,reachable,'o',pgettext("fpv","Open"));
                     menu.addentry(3,reachable,'c',pgettext("fpv","Shut"));
-                    menu.addentry(4,reachable && p!=player_character.pos_bub(here) &&
-                        get_creature_tracker().creature_at(p,true),'a',pgettext("fpv","Attack"));
-                    if(!reachable)menu.text+="\n"+std::string(pgettext("fpv","Out of reach: approach the selected cell."));
-                    menu.query();
-                    if(menu.ret<0)return false;
-                    if(menu.ret==4) {
-                        avatar_action::move(player_character,here,p-player_character.pos_bub(here));
-                        invalidate_main_ui_adaptor();return true;
+                    menu.addentry(4,reachable && selected_target.creature && p!=player_character.pos_bub(here),
+                        'A',pgettext("fpv","Attack"));
+                    menu.addentry(5,reachable,'s',pgettext("fpv","Smash"));
+                    menu.addentry(10,true,'a',pgettext("fpv","Use item (a)"));
+                    menu.addentry(11,true,'C',pgettext("fpv","Construction"));
+                    menu.addentry(12,true,'&',pgettext("fpv","Craft"));
+                    menu.addentry(13,true,'D',pgettext("fpv","Disassemble"));
+                    menu.addentry(14,true,'B',pgettext("fpv","Butcher / salvage"));
+                    menu.addentry(15,true,'m',pgettext("fpv","All actions..."));
+                    menu.query();if(menu.ret<0)return false;
+                    if(menu.ret>=10) {
+                        const action_id global[]={ACTION_USE,ACTION_CONSTRUCT,ACTION_CRAFT,ACTION_DISASSEMBLE,ACTION_BUTCHER,ACTION_ACTIONMENU};
+                        if(menu.ret<=15)pending_action=action_ident(global[menu.ret-10]);
+                        invalidate_main_ui_adaptor();return false;
                     }
-                    act=menu.ret==1?ACTION_PICKUP:menu.ret==2?ACTION_OPEN:menu.ret==3?ACTION_CLOSE:ACTION_FPV_INTERACT;
+                    const char *local[]={"interact","pickup","open","close","attack","smash"};
+                    if(menu.ret<=5)chosen=local[menu.ret];
+                } else if(act==ACTION_FPV_INTERACT && has_target)chosen=repeat_action(target_key(selected_target));
+                else if(act==ACTION_PICKUP || act==ACTION_PICKUP_ALL)chosen="pickup";
+                else if(act==ACTION_OPEN)chosen="open";
+                else if(act==ACTION_CLOSE)chosen="close";
+                else if(act==ACTION_SMASH)chosen="smash";
+                else chosen="interact";
+                if(!has_target) {
+                    add_msg(m_info,pgettext("fpv","No visible target under the crosshair."));return false;
                 }
                 if(!reachable) {
                     add_msg(m_info,pgettext("fpv","Out of reach: approach the selected cell."));
                     invalidate_main_ui_adaptor();return false;
                 }
-                if(act==ACTION_PICKUP || act==ACTION_PICKUP_ALL)pickup(p);
-                else if(act==ACTION_OPEN)open(p);
-                else if(act==ACTION_CLOSE)doors::close_door(here,player_character,p);
-                else if(act==ACTION_SMASH)smash(p);
-                else if(act==ACTION_FPV_INTERACT && here.has_flag(ter_furn_flag::TFLAG_DOOR,p) && here.ter(p).obj().movecost==0)open(p);
-                else examine(p,act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_FPV_INTERACT);
+                // Creature identity follows movement. Never repeat an attack as a move into an empty cell.
+                if(chosen=="attack") {
+                    const Creature *c=get_creature_tracker().creature_at(p,true);
+                    if(!selected_target.creature || !c || !player_character.sees(here,*c) || p==player_character.pos_bub(here))return false;
+                    remember_action(target_key(selected_target),chosen);
+                    avatar_action::move(player_character,here,p-player_character.pos_bub(here));
+                } else {
+                    remember_action(target_key(selected_target),chosen);
+                    if(chosen=="pickup")pickup(p);
+                    else if(chosen=="open")open(p);
+                    else if(chosen=="close")doors::close_door(here,player_character,p);
+                    else if(chosen=="smash")smash(p);
+                    else if(here.has_flag(ter_furn_flag::TFLAG_DOOR,p) && here.ter(p).obj().movecost==0)open(p);
+                    else examine(p,act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_FPV_INTERACT || chosen=="interact");
+                }
                 invalidate_main_ui_adaptor();return true;
             }
+
             if( act == ACTION_SELECT || act == ACTION_SEC_SELECT || act == ACTION_CLICK_AND_DRAG ) {
                 return false; // World clicks are handled by depth-buffer picking in SDL.
             }

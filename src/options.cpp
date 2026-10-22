@@ -2461,8 +2461,8 @@ void options_manager::add_options_graphics()
              to_translation("Software 3D framebuffer width; lower values are faster."),
              240, 960, 480, COPT_CURSES_HIDE );
         add( "FPV_RANGE", page_id, to_translation("FPV: horizontal render distance"),
-             to_translation("Maximum rendered radius in map cells, limited by character visibility."),
-             4, 60, 32, COPT_CURSES_HIDE );
+             to_translation("0: automatic, render the full loaded map with character visibility and recorded map memory. Positive values limit radius in map cells."),
+             0, 132, 0, COPT_CURSES_HIDE );
         add( "FPV_Z_RADIUS", page_id, to_translation("FPV: vertical render radius"),
              to_translation("Maximum number of loaded z-levels above/below the character to render."),
              1, 10, 10, COPT_CURSES_HIDE );

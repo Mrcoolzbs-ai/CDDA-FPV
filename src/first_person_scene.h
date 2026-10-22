@@ -3,6 +3,31 @@
 #define CATA_SRC_FIRST_PERSON_SCENE_H
 #include "first_person.h"
 namespace first_person {
+// Repeating physical material, never a top-down object icon.
+inline const image &wood_texture() {
+    static const image tex=[] {image im;im.w=32;im.h=32;im.pixels.resize(1024);
+        for(int y=0;y<32;++y)for(int x=0;x<32;++x) {
+            const unsigned grain=(x*17+y*3+(x*y)%7)%23;
+            im.pixels[y*32+x]=0xff000000|((111+grain)<<16)|((85+grain)<<8)|(55+grain);
+        }return im;}();return tex;
+}
+inline image vegetation_sprite(bool bush,unsigned seed) {
+    image im;im.w=48;im.h=64;im.pixels.assign(im.w*im.h,0);
+    for(int y=0;y<im.h;++y)for(int x=0;x<im.w;++x) {
+        const double u=(x+.5)/im.w*2-1,v=(y+.5)/im.h;
+        const unsigned noise=(x*57u+y*137u+seed+(x*y*31u))%101;
+        const bool leaf=bush ? (u*u+(v-.48)*(v-.48)*3.3<.85 && noise>17):
+            (v>.12+((x*13u+seed)%37)/100. && std::abs(std::sin(x*.9+v*3))<.12+v*.36);
+        if(leaf)im.pixels[y*im.w+x]=0xff000000|((44+noise/3)<<16)|((68+noise/2)<<8)|(25+noise/5);
+    }return im;
+}
+inline const image &water_texture() {
+    static const image tex=[] {image im;im.w=32;im.h=32;im.pixels.resize(1024);
+        for(int y=0;y<32;++y)for(int x=0;x<32;++x) {
+            const unsigned n=static_cast<unsigned>((std::sin(x*.7+y*.33)+1)*15);
+            im.pixels[y*32+x]=0xff000000|((52+n)<<16)|((93+n)<<8)|(104+n);
+        }return im;}();return tex;
+}
 // Procedural meshes use distinct horizontal, vertical and front materials.
 // Existing top-down tiles are not stretched over all six faces.
 struct model {
@@ -39,35 +64,62 @@ struct model {
         box({c.x-.11,c.y-breadth/2-.006,c.z-.11},{c.x+.11,c.y+breadth/2+.006,c.z+.11},0xff9d9e98);
     }
     // Returns the support height for dropped items.
-    double furniture(const std::string &name,const image *top,bool surface) {
+    double furniture(const std::string &name,const image *top,bool /* surface */) {
         const auto has=[&](const char *s){return name.find(s)!=std::string::npos;};
         const auto legs=[&](double z){for(double x:{-.34,.28})for(double y:{-.34,.28})
             box({x,y,.02},{x+.06,y+.06,z},0xff65503c);};
+        if(has("firering") || has("fire_ring") || has("fireplace") || has("brazier")) {
+            box({-.3,-.3,.01},{.3,.3,.025},0xff34302c);
+            for(int i=0;i<10;++i) {
+                const double a=i*2*pi/10,cx=std::cos(a)*.35,cy=std::sin(a)*.35;
+                box({cx-.09,cy-.09,.02},{cx+.09,cy+.09,.17},0xff77736b);
+            }
+            return .025;
+        }
+        if(has("canvas") || has("groundsheet") || has("skin_wall") || has("skin_door") || has("skin_floor") || has("tent")) {
+            const bool door=has("door"),wall=has("wall")||door;
+            if(wall) {
+                if(door && has("_o")) {
+                    box({-.5,-.035,0},{-.39,.035,1.9},0xff72745a);
+                    box({.39,-.035,0},{.5,.035,1.9},0xff72745a);
+                    box({-.5,-.035,1.75},{.5,.035,1.9},0xff72745a);
+                } else box({-.5,-.035,0},{.5,.035,1.9},0xff8d9074);
+            } else {
+                box({-.5,-.5,.006},{.5,.5,.018},0xff686d54);
+                // Cloth canopy, not a cube bearing a tiny tent icon.
+                r.quad({{at({-.55,-.55,1.85}),at({0,-.55,2.25}),at({0,.55,2.25}),at({-.55,.55,1.85})}},nullptr,0xff92957a,light*.85,false,id);
+                r.quad({{at({0,-.55,2.25}),at({.55,-.55,1.85}),at({.55,.55,1.85}),at({0,.55,2.25})}},nullptr,0xffa0a286,light,false,id);
+            }
+            return .018;
+        }
+        if(has("bush") || has("shrub") || has("grass") || has("fern")) {
+            r.billboard(origin,.85,.8,top,0xff476235,light,id);return 0;
+        }
         if(has("locker")||has("fridge")||has("cabinet")||has("dresser")) {
             const double h=has("dresser")?.95:1.9;
-            box({-.43,-.35,.04},{.43,.38,h},0xff727b7d,top);
-            box({-.39,-.37,.12},{.39,-.35,h-.08},0xff9a9b91,nullptr,nullptr,top);
+            box({-.43,-.35,.04},{.43,.38,h},0xff727b7d);
+            box({-.39,-.37,.12},{.39,-.35,h-.08},0xff9a9b91);
             box({.25,-.40,h*.45},{.28,-.36,h*.65},0xff24292a);
             return h;
         }
         if(has("shelf")||has("bookcase")||has("rack")) {
             for(double x:{-.43,.39})box({x,-.4,.02},{x+.04,.4,1.9},0xff655442);
-            for(double z:{.15,.65,1.15,1.7})box({-.43,-.4,z},{.43,.4,z+.05},0xff81705b,top);
+            for(double z:{.15,.65,1.15,1.7})box({-.43,-.4,z},{.43,.4,z+.05},0xff81705b,&wood_texture());
             return 1.75;
         }
         if(has("bed")||has("sofa")||has("couch")) {
             box({-.47,-.47,.1},{.47,.47,.36},0xff624b38);
-            box({-.44,-.43,.36},{.44,.43,.57},0xffc3bba2,top);
+            box({-.44,-.43,.36},{.44,.43,.57},0xffc3bba2);
             box({-.47,.4,.35},{.47,.47,has("bed")?.85:1.1},0xff796a54);
             return .57;
         }
         if(has("chair")||has("bench")||has("stool")) {
-            legs(.47);box({-.39,-.39,.47},{.39,.39,.54},0xff8e7251,top);
+            legs(.47);box({-.39,-.39,.47},{.39,.39,.54},0xff8e7251,&wood_texture());
             if(!has("stool"))box({-.39,.32,.53},{.39,.4,1.05},0xff786044);
             return .54;
         }
-        if(has("table")||has("desk")||has("counter")||surface) {
-            legs(.78);box({-.45,-.45,.78},{.45,.45,.87},0xff8c7656,top);
+        if(has("table")||has("desk")||has("counter")) {
+            legs(.78);box({-.45,-.45,.78},{.45,.45,.87},0xff8c7656,&wood_texture());
             return .87;
         }
         // Preserve the original detailed sprite for unidentified props rather than invent a cube.

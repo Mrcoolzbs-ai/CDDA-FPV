@@ -63,11 +63,13 @@ const char *pgettext(const char *,const char *s) {
 int main() {
  using namespace first_person;
  int checks=0;
- for(int fw:{8,12,16}) for(int width:{390,600,960}) for(bool inventory:{false,true}) {
+ for(int fw:{8,12,16}) for(int width:{390,600,960}) for(bool inventory:{false,true}) for(int tab:{0,1,2}) {
   font->width=fw;font->height=16;
-  inventory_open=inventory;
+  inventory_open=inventory;inventory_tab=tab;pointer_x=pointer_y=0;
+  body_statuses={{"Голова",70,80,{"Шлем"},"head"},{"Торс",85,100,{"Футболка","Куртка","Рюкзак"},"torso"},{"Левая рука",60,80,{"Куртка"},"arm_l"},{"Правая рука",80,80,{"Куртка"},"arm_r"},{"Левая нога",50,80,{"Джинсы"},"leg_l"},{"Правая нога",80,80,{"Джинсы"},"leg_r"}};
+  morale_level=-4;morale_entries={{"Вкусная еда",12},{"Мокрая одежда",-16}};
   selected_target={"стол",4,5,0,false};cell_reachable=true;
-  inventory_labels={"Мачете","Рюкзак","Вода (чистая)","Бинт","Футболка","Джинсы"};
+  inventory_labels={"Мачете","[-] Рюкзак [надето]","  Карман 1: 250 / 5000 ml","    [+] Аптечка","    Вода (чистая)","Джинсы"};
   cell_labels={"Пластиковая бутылка","Яблоко","Складной нож"};
   draw_first_person_hud(point(0,0),width,600,"ВЗГЛЯД С | ХОД С | F7: обзор мышью","Зомби | z=0","Без оружия",.72f);
   std::set<std::string> commands;
@@ -80,17 +82,23 @@ int main() {
   }
   if(!inventory && buttons.size()!=11)throw std::runtime_error("Missing HUD action");
   if(inventory) {
-   for(const char *world:{"pause","pickup","inventory","examine","open","close","smash","fire","reload","up","down"})
-    if(!commands.count(world))throw std::runtime_error("Missing world toolbar in inventory");
+   for(const char *world:{"pause","pickup","examine","open","close","smash","fire","reload","up","down"})
+    if(commands.count(world))throw std::runtime_error("World toolbar should not cover inventory");
    for(const char *old:{"interact","attack","open","close_door","up","down"})
     if(commands.count(std::string("fpv:")+old))throw std::runtime_error("World action leaked into item controls");
   }
-  if(inventory)for(const char *op:{"close","take","put","wield","wear","use"}) {
+  if(inventory)for(const char *op:{"close","expand","item_menu","take","put","wield","wear","use"}) {
    if(!commands.count(std::string("fpv:")+op))throw std::runtime_error(std::string("Missing inventory action: ")+op);++checks;
+  }
+  if(inventory && (width-16>=780 || tab==0)) {
+   if(!commands.count("fpv:body:0") || !commands.count("fpv:body:5"))throw std::runtime_error("Missing anatomy parts");
+   for(const auto &b:buttons)if(b.action=="fpv:morale") {pointer_x=b.x+1;pointer_y=b.y+1;break;}
+   draw_first_person_hud(point(0,0),width,600,"ВЗГЛЯД С | ЛКМ: Атаковать","Зомби","Мачете",.72f);
+   if(!morale_hover)throw std::runtime_error("Morale tooltip did not open");++checks;
   }
  }
  if(!cyrillic_glyphs)throw std::runtime_error("No Cyrillic reached font API");
- std::cout<<"RU HUD: "<<checks<<" bounds/overlap/presence checks; 18 layouts; Cyrillic reached font API\n";
+ std::cout<<"RU HUD: "<<checks<<" bounds/overlap/presence checks; 54 layouts; anatomy, nested labels, morale hover; Cyrillic reached font API\n";
 }
 '''
     cpp = tmp / 'test.cpp'

@@ -141,6 +141,11 @@ void Character::apply_persistent_morale()
     }
 }
 
+std::vector<std::pair<std::string,int>> Character::get_morale_entries() const
+{
+    return morale->get_entries();
+}
+
 int Character::get_morale_level() const
 {
     return morale->get_level();

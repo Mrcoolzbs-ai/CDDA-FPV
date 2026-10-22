@@ -194,7 +194,8 @@ void draw_first_person_hud( const point &dest, int width, int height,
         row_used+=bw+pad;
     }
     const int panel_h=fh+pad*3+rows*button_h;
-    const int bottom=dest.y+height-panel_h;
+    const int bottom=first_person::inventory_open?dest.y+height:dest.y+height-panel_h;
+    if(!first_person::inventory_open) {
     rect(dest.x,bottom,width,panel_h,SDL_Color{16,21,28,255});
     const int bar_w=std::min(100,width/4);
     text(weapon,dest.x+pad,bottom+pad,width-bar_w-pad*4,15);
@@ -211,62 +212,126 @@ void draw_first_person_hud( const point &dest, int width, int height,
         first_person::buttons.push_back({bx,by,bw,button_h-4,action_ident(a.second)});
         bx+=bw+pad;
     }
+    }
     if(first_person::inventory_open) {
         using namespace first_person;
-        // Occupies only the terrain viewport, preserving the standard right sidebar.
-        const int x=dest.x+pad, y=dest.y+fh+pad*3, w=width-pad*2;
-        const int row_h=std::max(28,fh+10);
-        const int ph=bottom-y-pad;
+        const int x=dest.x+pad,y=dest.y+fh+pad*3,w=width-pad*2,ph=bottom-y-pad;
+        const int row_h=std::max(24,fh+8);
         rect(x,y,w,ph,SDL_Color{16,21,28,255});
-        const auto button=[&](const std::string &label,const std::string &command,int X,int Y,int W) {
-            rect(X,Y,W,row_h-3,SDL_Color{37,46,59,255});
+        const auto button=[&](const std::string &label,const std::string &command,int X,int Y,int W,int H=0) {
+            if(!H)H=row_h-3;
+            if(Y<y || Y+H>y+ph || W<8)return;
+            rect(X,Y,W,H,SDL_Color{37,46,59,255});
             text(label,X+4,Y+4,W-8,15);
-            buttons.push_back({X,Y,W,row_h-3,"fpv:"+command});
+            buttons.push_back({X,Y,W,H,"fpv:"+command});
         };
-        const int close_w=std::max(72,utf8_width(pgettext("fpv", "Close"))*fw+16);
-        text(std::string(pgettext("fpv", "INVENTORY / "))+selected_target.label,x+pad,y+pad,w-close_w-pad*3,15);
-        button(pgettext("fpv", "Close"),"close",x+w-close_w-4,y+4,close_w);
-        const int half=(w-pad)/2;
-        text(pgettext("fpv", "Carried"),x+pad,y+row_h,half-pad,15);
-        text(cell_reachable ? pgettext("fpv", "Cell (reachable)") : pgettext("fpv", "Cell (view only)"),x+half+pad,y+row_h,half-pad,15);
+        const int close_w=std::max(72,utf8_width(pgettext("fpv","Close"))*fw+16);
+        text(pgettext("fpv","EQUIPMENT / CONTAINERS"),x+4,y+4,w-close_w-12,15);
+        button(pgettext("fpv","Close"),"close",x+w-close_w,y,close_w);
+        const bool wide=w>=780;
+        const int body_w=wide?std::min(280,w/3):w;
+        const int list_w=wide?(w-body_w-pad*2)/2:w;
+        const int item_x=wide?x+body_w+pad:x;
+        const int cell_x=wide?item_x+list_w+pad:x;
+        const int tab_h=wide?0:row_h;
+        if(!wide) {
+            button(pgettext("fpv","Body"),"tab:0",x,y+row_h,w/3-3);
+            button(pgettext("fpv","Carried"),"tab:1",x+w/3,y+row_h,w/3-3);
+            button(pgettext("fpv","Cell"),"tab:2",x+w*2/3,y+row_h,w-w*2/3);
+        }
+        const int content_y=y+row_h+tab_h;
         const std::vector<std::pair<std::string,std::string>> operations={
+            {pgettext("fpv","Expand"),"expand"},{pgettext("fpv","Item menu"),"item_menu"},
             {pgettext("fpv","Take"),"take"},{pgettext("fpv","Put"),"put"},
             {pgettext("fpv","Wield"),"wield"},{pgettext("fpv","Wear"),"wear"},{pgettext("fpv","Use"),"use"}};
-        int operation_rows=1, operation_width=0;
+        int op_rows=1,op_width=0;
         for(const auto &op:operations) {
-            const int bw=utf8_width(op.first)*fw+12;
-            if(operation_width && operation_width+bw>w-8) { ++operation_rows;operation_width=0; }
-            operation_width+=bw+4;
+            const int bw=std::min(w-8,utf8_width(op.first)*fw+12);
+            if(op_width && op_width+bw>w-8){++op_rows;op_width=0;}op_width+=bw+4;
         }
-        // Reserve the actual translated action rows, including at large font sizes.
-        const int count=std::max(1,(ph-fh-pad)/row_h-3-operation_rows);
+        const int op_y=y+ph-fh*2-pad-op_rows*row_h;
+        const int list_bottom=op_y-row_h-pad;
+        const int count=std::max(0,(list_bottom-content_y-row_h)/row_h);
         const auto column=[&](const std::vector<std::string> &labels,int &page,int side,int X) {
-            page=std::clamp(page,0,std::max(0,(static_cast<int>(labels.size())-1)/count));
+            const int page_size=std::max(1,count);
+            page=std::clamp(page,0,std::max(0,(static_cast<int>(labels.size())-1)/page_size));
+            text(side==0?pgettext("fpv","Carried"):cell_reachable?pgettext("fpv","Cell (reachable)"):pgettext("fpv","Cell (view only)"),X+4,content_y+4,list_w-8,15);
             for(int r=0;r<count;++r) {
-                const int i=page*count+r;
-                if(i>=static_cast<int>(labels.size())) { break; }
-                const int Y=y+2*row_h+r*row_h;
-                rect(X,Y,half-pad,row_h-2,selected_side==side && selected_row==i ?
-                    SDL_Color{48,87,104,255}:SDL_Color{28,35,44,255});
-                text(labels[i],X+4,Y+4,half-pad-8,15);
-                buttons.push_back({X,Y,half-pad,row_h-2,"fpv:row:"+std::to_string(side)+":"+std::to_string(i)});
+                const int i=page*page_size+r;if(i>=static_cast<int>(labels.size()))break;
+                const int Y=content_y+(r+1)*row_h;
+                rect(X,Y,list_w,row_h-2,selected_side==side && selected_row==i?SDL_Color{48,87,104,255}:SDL_Color{28,35,44,255});
+                text(labels[i],X+4,Y+4,list_w-8,15);
+                buttons.push_back({X,Y,list_w,row_h-2,"fpv:row:"+std::to_string(side)+":"+std::to_string(i)});
             }
-            const int Y=y+(2+count)*row_h;
-            button("<","prev"+std::to_string(side),X,Y,36);
-            text(std::to_string(page+1),X+44,Y+4,half-92,15);
-            button(">","next"+std::to_string(side),X+half-pad-36,Y,36);
+            button("<","prev"+std::to_string(side),X,list_bottom,32);
+            text(std::to_string(page+1),X+40,list_bottom+4,list_w-80,15);
+            button(">","next"+std::to_string(side),X+list_w-32,list_bottom,32);
         };
-        column(inventory_labels,inventory_page,0,x+4);
-        column(cell_labels,cell_page,1,x+half+pad);
-        int X=x+4,Y=y+(3+count)*row_h;
-        for(const auto &op:operations) {
-            const int bw=static_cast<int>(utf8_width(op.first))*fw+12;
-            if(X+bw>x+w-4) { X=x+4;Y+=row_h; }
-            if(Y+row_h>y+ph-fh-pad) { break; }
-            button(op.first,op.second,X,Y,bw); X+=bw+4;
+        if(wide || inventory_tab==1)column(inventory_labels,inventory_page,0,item_x);
+        if(wide || inventory_tab==2)column(cell_labels,cell_page,1,cell_x);
+        morale_hover=false;
+        if(wide || inventory_tab==0) {
+            int Y=content_y;
+            text(pgettext("fpv","Body / equipped layers"),x+4,Y+4,body_w-8,15);Y+=row_h;
+            body_selection=std::clamp(body_selection,0,std::max(0,static_cast<int>(body_statuses.size())-1));
+            // Anatomical layout for the standard body; additional mutation limbs use list rows.
+            const int anatomy_y=Y;
+            int extra=0;
+            for(size_t i=0;i<body_statuses.size();++i) {
+                const auto &part=body_statuses[i];
+                const double hp=part.maximum>0?std::clamp(double(part.hp)/part.maximum,0.,1.):0;
+                int X=x,W=body_w,H=row_h,dy=148+extra*row_h;
+                bool anatomical=true;
+                if(part.key=="head"){X=x+body_w*38/100;W=body_w*24/100;H=26;dy=0;}
+                else if(part.key=="torso"){X=x+body_w*31/100;W=body_w*38/100;H=40;dy=32;}
+                else if(part.key=="arm_l"){X=x+body_w*2/100;W=body_w*25/100;H=55;dy=32;}
+                else if(part.key=="arm_r"){X=x+body_w*73/100;W=body_w*25/100;H=55;dy=32;}
+                else if(part.key=="leg_l"){X=x+body_w*27/100;W=body_w*22/100;H=65;dy=78;}
+                else if(part.key=="leg_r"){X=x+body_w*51/100;W=body_w*22/100;H=65;dy=78;}
+                else {anatomical=false;++extra;}
+                const int B=anatomy_y+dy;
+                if(B+H>=list_bottom-row_h)continue;
+                rect(X,B,W,H,body_selection==static_cast<int>(i)?SDL_Color{77,102,112,255}:SDL_Color{49,59,66,255});
+                rect(X+3,B+H-7,W-6,4,SDL_Color{65,37,39,255});
+                rect(X+3,B+H-7,static_cast<int>((W-6)*hp),4,SDL_Color{static_cast<unsigned char>(190*(1-hp)),static_cast<unsigned char>(80+105*hp),80,255});
+                text((anatomical?"":part.name+" ")+std::to_string(part.hp),X+4,B+4,W-8,15);
+                buttons.push_back({X,B,W,H,"fpv:body:"+std::to_string(i)});
+            }
+            Y=anatomy_y+148+extra*row_h;
+            if(!body_statuses.empty()) {
+                const auto &part=body_statuses[body_selection];
+                if(Y+fh<list_bottom-row_h)text(part.name+" "+std::to_string(part.hp)+"/"+std::to_string(part.maximum),x+4,Y,body_w-8,15);
+                Y+=row_h;
+                for(const auto &it:part.equipment) {
+                    if(Y+fh+3>=list_bottom-row_h)break;
+                    text(it,x+8,Y,body_w-16,7);Y+=fh+3;
+                }
+            }
+            const int my=list_bottom-row_h;
+            button(std::string(pgettext("fpv","Morale "))+(morale_level>0?"+":"")+std::to_string(morale_level),"morale",x,my,body_w);
+            morale_hover=pointer_x>=x && pointer_x<x+body_w && pointer_y>=my && pointer_y<my+row_h;
         }
-        text(inventory_notice.empty() ? pgettext("fpv", "Select an item. World actions are on the bottom toolbar.") : inventory_notice,
-            x+pad,y+ph-fh-pad,w-pad*2,7);
+        int X=x+4,Y=op_y;
+        for(const auto &op:operations) {
+            const int bw=std::min(w-8,static_cast<int>(utf8_width(op.first))*fw+12);
+            if(X+bw>x+w-4){X=x+4;Y+=row_h;}
+            button(op.first,op.second,X,Y,bw);X+=bw+4;
+        }
+        text(item_details,x+4,y+ph-fh*2-pad,w-8,15);
+        text(inventory_notice.empty()?pgettext("fpv","Double-click: expand container / item menu. RMB: item menu."):inventory_notice,x+4,y+ph-fh-pad,w-8,7);
+        if(morale_hover) {
+            const int lines=std::max(1,(height-80)/row_h-2);
+            morale_scroll=std::clamp(morale_scroll,0,std::max(0,static_cast<int>(morale_entries.size())-lines));
+            const int W=std::min(w,640),H=(std::min(lines,static_cast<int>(morale_entries.size()))+2)*row_h;
+            const int X=x+w-W,Y=std::max(dest.y+fh+pad*2,std::min(pointer_y-H,y+ph-H));
+            rect(X,Y,W,H,SDL_Color{30,42,53,255});
+            text(pgettext("fpv","Morale factors (wheel: scroll)"),X+6,Y+4,W-12,15);
+            for(int n=0;n<lines && n+morale_scroll<static_cast<int>(morale_entries.size());++n) {
+                const auto &effect=morale_entries[n+morale_scroll];
+                text((effect.second>0?"+":"")+std::to_string(effect.second)+"  "+effect.first,X+6,Y+(n+1)*row_h+4,W-12,effect.second<0?9:10);
+            }
+            text(pgettext("fpv","Total is nonlinear; click for full morale screen."),X+6,Y+H-row_h+4,W-12,7);
+        }
     }
     if(first_person::inventory_open) { return; }
     // An unobtrusive center reticle. Target selection uses the actual depth buffer.
@@ -3392,6 +3457,7 @@ static void CheckMessages()
                 gamepad::handle_scheduler_event( ev );
                 break;
             case SDL_MOUSEMOTION:
+                first_person::pointer_x=ev.motion.x;first_person::pointer_y=ev.motion.y;
                 if( first_person::enabled && first_person::gameplay_input && first_person::mouse_locked ) {
                     const bool link=get_option<bool>("FPV_LINK_SPRITE");
                     first_person::mouse_motion(ev.motion.xrel,ev.motion.yrel,
@@ -3421,19 +3487,23 @@ static void CheckMessages()
                 if( first_person::enabled && first_person::gameplay_input &&
                     (ev.button.button == SDL_BUTTON_LEFT || ev.button.button == SDL_BUTTON_RIGHT) ) {
                     bool handled=false;
-                    if(!first_person::mouse_locked && ev.button.button==SDL_BUTTON_LEFT) for( const auto &button : first_person::buttons ) {
+                    if(!first_person::mouse_locked) for( const auto &button : first_person::buttons ) {
                         if( ev.button.x >= button.x && ev.button.x < button.x+button.w &&
                             ev.button.y >= button.y && ev.button.y < button.y+button.h ) {
                             if(button.action.rfind("fpv:",0)==0) {
                                 first_person::ui_command=button.action.substr(4);
+                                if(first_person::ui_command.rfind("row:",0)==0) {
+                                    if(ev.button.button==SDL_BUTTON_RIGHT)first_person::ui_command.replace(0,3,"itemcontext");
+                                    else if(ev.button.clicks>=2)first_person::ui_command.replace(0,3,"activate");
+                                } else if(ev.button.button!=SDL_BUTTON_LEFT)continue;
                                 first_person::pending_action=action_ident(ACTION_INVENTORY);
-                            } else { first_person::pending_action=button.action; }
+                            } else { if(ev.button.button!=SDL_BUTTON_LEFT)continue;first_person::pending_action=button.action; }
                             last_input=input_event(MouseInput::Move,input_event_t::mouse);
                             handled=true; break;
                         }
                     }
                     if( !handled && !first_person::inventory_open ) {
-                        if(first_person::select_target(first_person::gaze_id)) {
+                        if(ev.button.button==SDL_BUTTON_RIGHT || first_person::select_target(first_person::gaze_id)) {
                             first_person::pending_action=action_ident(ev.button.button==SDL_BUTTON_LEFT ?
                                 ACTION_FPV_INTERACT:ACTION_FPV_CONTEXT);
                             last_input=input_event(MouseInput::Move,input_event_t::mouse);
@@ -3441,7 +3511,7 @@ static void CheckMessages()
                         // Never fall through into top-down movement/attack for an empty gaze target.
                         handled=true;
                     }
-                    if( handled ) { break; }
+                    if( handled || first_person::inventory_open ) { break; }
                 }
                 if( ! mouse.enabled ) {
                     break;
@@ -3483,6 +3553,13 @@ static void CheckMessages()
                 break;
 
             case SDL_MOUSEWHEEL:
+                if(first_person::enabled && first_person::gameplay_input && first_person::inventory_open) {
+                    if(first_person::morale_hover)first_person::morale_scroll=std::max(0,first_person::morale_scroll-ev.wheel.y);
+                    else {first_person::ui_command=std::string(ev.wheel.y>0?"prev":"next")+
+                        ((first_person::viewport_w-16<780?first_person::inventory_tab!=2:first_person::pointer_x<first_person::viewport_x+first_person::viewport_w*2/3)?"0":"1");
+                        first_person::pending_action=action_ident(ACTION_INVENTORY);}
+                    last_input=input_event(MouseInput::Move,input_event_t::mouse);break;
+                }
                 if( ! mouse.enabled ) {
                     break;
                 }

@@ -469,6 +469,18 @@ int player_morale::get_total_positive_value() const
     return std::sqrt( sum );
 }
 
+std::vector<std::pair<std::string,int>> player_morale::get_entries() const
+{
+    std::vector<std::pair<std::string,int>> result;
+    const morale_mult mult=get_temper_mult();
+    for(const morale_point &m:points) {
+        const int value=m.get_net_bonus(mult);
+        if(value!=0)result.emplace_back(m.get_name(),value);
+    }
+    std::stable_sort(result.begin(),result.end(),[](const auto &a,const auto &b){return a.second>b.second;});
+    return result;
+}
+
 int player_morale::get_level() const
 {
     if( !level_is_valid ) {

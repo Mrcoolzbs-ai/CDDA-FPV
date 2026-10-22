@@ -815622,3 +815622,116 @@ msgstr "FPV: взаимодействие с целью под прицелом"
 
 msgid "FPV: target action menu"
 msgstr "FPV: меню действий с целью"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "EQUIPMENT / CONTAINERS"
+msgstr "СНАРЯЖЕНИЕ / КОНТЕЙНЕРЫ"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Body"
+msgstr "Тело"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Cell"
+msgstr "Клетка"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Expand"
+msgstr "Раскрыть"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Item menu"
+msgstr "Меню вещи"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Body / equipped layers"
+msgstr "Тело / слои одежды"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Morale "
+msgstr "Настроение "
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Double-click: expand container / item menu. RMB: item menu."
+msgstr "Двойной клик: контейнер / меню вещи. ПКМ: меню вещи."
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Morale factors (wheel: scroll)"
+msgstr "Факторы настроения (колесо: прокрутка)"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Total is nonlinear; click for full morale screen."
+msgstr "Итог нелинейный; клик — полное окно настроения."
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Pocket "
+msgstr "Карман "
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "SEALED"
+msgstr "ЗАПЕЧАТАН"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid " [worn]"
+msgstr " [надето]"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid " [wielded]"
+msgstr " [в руках]"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Actions"
+msgstr "Действия"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Use item (a)"
+msgstr "Применить предмет (a)"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Construction"
+msgstr "Строительство"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Craft"
+msgstr "Изготовление"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Disassemble"
+msgstr "Разборка"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "Butcher / salvage"
+msgstr "Разделка / разбор"
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "All actions..."
+msgstr "Все действия..."
+
+#. CDDA-FPV 0.6 UI
+msgctxt "fpv"
+msgid "LMB: "
+msgstr "ЛКМ: "
+
+msgid "0: automatic, render the full loaded map with character visibility and recorded map memory. Positive values limit radius in map cells."
+msgstr "0: автоматически, вся загруженная карта с учётом зрения персонажа и записанной памяти карты. Положительное значение ограничивает радиус в клетках."

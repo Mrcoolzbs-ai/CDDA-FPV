@@ -2034,7 +2034,7 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
         return found->second.valid() ? &found->second : nullptr;
     };
     const auto material = [&]( const std::string &id, TILE_CATEGORY category,
-                              unsigned seed = 0 ) -> const first_person::image * {
+                              unsigned seed = 0, bool foreground_only=false ) -> const first_person::image * {
         auto tile = find_tile_looks_like( id, category, "" );
         if( !tile ) { return nullptr; }
         if( tile->tile().multitile ) {
@@ -2045,7 +2045,7 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
         const std::vector<int> *fg = tile->tile().fg.pick( seed );
         const std::vector<int> *bg = tile->tile().bg.pick( seed );
         const int f = fg && !fg->empty() ? fg->front() : -1;
-        const int b = bg && !bg->empty() ? bg->front() : -1;
+        const int b = !foreground_only && bg && !bg->empty() ? bg->front() : -1;
         const std::string key = std::to_string(f) + ":" + std::to_string(b);
         auto found = fpv_material_cache.find( key );
         if( found == fpv_material_cache.end() ) {
@@ -2097,16 +2097,23 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                             const first_person::image *tex, double light, int id ) {
         fpv_raster.quad( {{{x,y,z},{X,y,z},{X,Y,z},{x,Y,z}}}, tex, 0xff514b40, light, false, id );
     };
-    const int radius = get_option<int>( "FPV_RANGE" );
+    const int configured_radius=get_option<int>("FPV_RANGE");
+    // Auto covers the same loaded map as the top-down view. CDDA's visibility remains authoritative.
+    const int radius=configured_radius==0?here.getmapsize()*SEEX:configured_radius;
+    const int min_x=std::max(0,origin.x()-radius),max_x=std::min(here.getmapsize()*SEEX-1,origin.x()+radius);
+    const int min_y=std::max(0,origin.y()-radius),max_y=std::min(here.getmapsize()*SEEY-1,origin.y()+radius);
+    const auto grass_sprite=first_person::vegetation_sprite(false,7);
+    const auto bush_sprite=first_person::vegetation_sprite(true,29);
     const int zr = get_option<int>( "FPV_Z_RADIUS" );
     const int zmin = std::max( -OVERMAP_DEPTH, origin.z()-zr );
     const int zmax = std::min( OVERMAP_HEIGHT, origin.z()+zr );
     for( int z = zmin; z <= zmax; ++z ) {
         here.update_visibility_cache( z );
-        for( int y = origin.y()-radius; y <= origin.y()+radius; ++y ) {
-            for( int x = origin.x()-radius; x <= origin.x()+radius; ++x ) {
+        you.prepare_map_memory_region(here.get_abs(tripoint_bub_ms(min_x,min_y,z)),here.get_abs(tripoint_bub_ms(max_x,max_y,z)));
+        for( int y = min_y; y <= max_y; ++y ) {
+            for( int x = min_x; x <= max_x; ++x ) {
                 const tripoint_bub_ms p( x, y, z );
-                if( !here.inbounds(p) || (x-origin.x())*(x-origin.x())+(y-origin.y())*(y-origin.y()) > radius*radius ) {
+                if( !here.inbounds(p) ) {
                     continue;
                 }
                 const double base = z * first_person::story_height;
@@ -2114,20 +2121,46 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                 const double htan = std::tan(camera.hfov/2), vtan = htan*render_height/render_width;
                 if( center.z < -3 || std::abs(center.x) > std::max(0.0,center.z)*htan+3 ||
                     std::abs(center.y) > std::max(0.0,center.z)*vtan+3 ) { continue; }
-                // Never fill unseen cells with real geometry or readable textures.
-                if( !you.sees(here,p) && p != origin ) {
-                    // Do not fill every unknown upper air cell with a black cube: that hid the sky.
-                    // Same-level unknown space stays opaque; no unknown objects/textures are emitted.
-                    if(z==origin.z()) fpv_raster.box( {double(x),double(y),base}, {x+1.0,y+1.0,base+3},
-                                    nullptr, 0xff000000 );
+                const bool live=p==origin || you.sees(here,p);
+                if(!live) {
+                    // Only recorded terrain/furniture. No live queries for hidden occupants/items/vehicles.
+                    const memorized_tile &memory=you.get_memorized_tile(here.get_abs(p));
+                    const std::string id=memory.get_ter_id(),decor=memory.get_dec_id();
+                    const ter_str_id remembered(id);
+                    if(id.empty() || !remembered.is_valid())continue;
+                    const ter_t &ter=remembered.obj();
+                    const auto *tex=material(id,TILE_CATEGORY::TERRAIN);
+                    const bool tree=ter.has_flag(ter_furn_flag::TFLAG_TREE);
+                    const bool wall=ter.has_flag(ter_furn_flag::TFLAG_WALL) ||
+                        (ter.has_flag(ter_furn_flag::TFLAG_DOOR) && !ter.has_flag(ter_furn_flag::TFLAG_TRANSPARENT));
+                    if(wall)fpv_raster.box({double(x),double(y),base},{x+1.,y+1.,base+3},tex,0xff77736a,.48,-1);
+                    else {
+                        if(!ter.has_flag(ter_furn_flag::TFLAG_NO_FLOOR))
+                            floor(x,y,x+1.,y+1.,base,tree?material("t_grass",TILE_CATEGORY::TERRAIN):tex,.48,-1);
+                        if(tree)fpv_raster.billboard({x+.5,y+.5,base},.95,2.4,material(id,TILE_CATEGORY::TERRAIN,0,true),0xff626e46,.48,-1);
+                        if(decor.rfind("f_",0)==0) {
+                            first_person::model object{fpv_raster,{x+.5,y+.5,base},0,.48,-1};
+                            object.furniture(decor,material(decor,TILE_CATEGORY::FURNITURE,0,true),false);
+                        }
+                    }
                     continue;
                 }
+                you.memorize_terrain(here.get_abs(p),here.ter(p).id().str(),0,0);
+                // Do not overwrite stored vehicle/trap memory as a side effect of drawing furniture.
+                if(here.has_furn(p))you.memorize_decoration(here.get_abs(p),here.furn(p).id().str(),0,0);
+                else you.memorize_clear_decoration(here.get_abs(p),"f_");
                 const bool low = here.get_cache_ref(z).visibility_cache[x][y] == lit_level::LOW;
                 const double light = low ? .45 : 1.0;
                 const unsigned seed = static_cast<unsigned>(x*73856093u) ^ static_cast<unsigned>(y*19349663u);
                 const ter_t &terrain = here.ter(p).obj();
                 const std::string terrain_id = terrain.id.str();
                 const first_person::image *ter_image = material(terrain_id,TILE_CATEGORY::TERRAIN,seed);
+                const bool tree=terrain.has_flag(ter_furn_flag::TFLAG_TREE);
+                const bool bush=terrain.has_flag(ter_furn_flag::TFLAG_SHRUB);
+                const bool tall_grass=terrain_id=="t_grass_tall" || terrain_id=="t_grass_long";
+                const bool puddle=terrain_id=="t_puddle" || terrain_id=="t_puddle_underground";
+                const auto *ground_image=(tree || bush || tall_grass)?material("t_grass",TILE_CATEGORY::TERRAIN,seed):ter_image;
+                if(puddle)ground_image=material("t_dirt",TILE_CATEGORY::TERRAIN,seed);
                 const int tile_target = target(here.name(p),p);
                 const bool window=here.has_flag(ter_furn_flag::TFLAG_WINDOW,p);
                 const bool glass_wall=here.is_transparent(p) &&
@@ -2182,12 +2215,12 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     here.has_flag(ter_furn_flag::TFLAG_NO_FLOOR_WATER,p) ) {
                     if( opening ) {
                         // Generic rim for stairwells / transparent floors. Exact stair orientation is not modeled.
-                        floor(x,y,x+1.,y+.12,base,ter_image,light,tile_target);
-                        floor(x,y+.88,x+1.,y+1.,base,ter_image,light,tile_target);
-                        floor(x,y+.12,x+.12,y+.88,base,ter_image,light,tile_target);
-                        floor(x+.88,y+.12,x+1.,y+.88,base,ter_image,light,tile_target);
+                        floor(x,y,x+1.,y+.12,base,ground_image,light,tile_target);
+                        floor(x,y+.88,x+1.,y+1.,base,ground_image,light,tile_target);
+                        floor(x,y+.12,x+.12,y+.88,base,ground_image,light,tile_target);
+                        floor(x+.88,y+.12,x+1.,y+.88,base,ground_image,light,tile_target);
                     } else {
-                        floor(x,y,x+1.,y+1.,base,ter_image,light,tile_target);
+                        floor(x,y,x+1.,y+1.,base,ground_image,light,tile_target);
                     }
                 }
                 const tripoint_bub_ms above(x,y,z+1);
@@ -2199,6 +2232,22 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     fpv_raster.quad({{{double(x),double(y),base+3},{double(x),y+1.,base+3},
                         {x+1.,y+1.,base+3},{x+1.,double(y),base+3}}},
                         nullptr,0xffb9b5a8,light*.7,false,tile_target);
+                }
+                if(puddle) {
+                    // Finite water sources are stored as actual map items; never invent water after depletion.
+                    bool wet=false;
+                    for(const item &it:here.i_at(p))if(it.made_of(phase_id::LIQUID) && it.charges>0){wet=true;break;}
+                    if(wet)floor(x+.08,y+.08,x+.92,y+.92,base+.012,&first_person::water_texture(),light,tile_target);
+                }
+                if(tall_grass || bush) {
+                    const double h=bush?1.05:terrain_id=="t_grass_tall"?1.05:.55;
+                    const auto *tex=bush?&bush_sprite:&grass_sprite;
+                    // Crossed upright cutouts, not a floor carpet.
+                    for(double angle:{0.0,first_person::pi/2,first_person::pi/4}) {
+                        const double A=std::cos(angle)*.47,B=std::sin(angle)*.47;
+                        fpv_raster.quad({{{x+.5-A,y+.5-B,base},{x+.5+A,y+.5+B,base},
+                            {x+.5+A,y+.5+B,base+h},{x+.5-A,y+.5-B,base+h}}},tex,0,light,true,tile_target);
+                    }
                 }
                 if(frame) {
                     // Infer a fixed wall plane from its connections; never face glass at the camera.
@@ -2224,8 +2273,11 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                                 {x+.5,y+.94,base+top-.06},{x+.5,y+.06,base+top-.06}}};
                         fpv_raster.transparent_quad(pane,0xff91b9c6,tile_target);
                     }
-                } else if(terrain.movecost==0) {
-                    fpv_raster.billboard( {x+.5,y+.5,base}, .95, 2.4, ter_image,
+                } else if(terrain_id=="t_tarptent" || terrain_id.find("improvised_shelter")!=std::string::npos) {
+                    first_person::model tent{fpv_raster,{x+.5,y+.5,base},0,light,tile_target};
+                    tent.furniture("tent",nullptr,false);
+                } else if(terrain.movecost==0 && !bush) {
+                    fpv_raster.billboard( {x+.5,y+.5,base}, .95, 2.4, material(terrain_id,TILE_CATEGORY::TERRAIN,seed,true),
                                            0xff707970, light, tile_target );
                 }
                 // Visible treads, not a vertical sprite. Movement still uses CDDA's stair action.
@@ -2251,8 +2303,15 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                 double support = 0;
                 if( here.has_furn(p) ) {
                     const furn_t &furn = here.furn(p).obj();
-                    const auto *furn_image=material(furn.id.str(),TILE_CATEGORY::FURNITURE,seed);
+                    const auto *furn_image=material(furn.id.str(),TILE_CATEGORY::FURNITURE,seed,true);
+                    if(furn.id.str().find("bush")!=std::string::npos || furn.id.str().find("fern")!=std::string::npos ||
+                       furn.id.str().find("grass")!=std::string::npos)furn_image=&bush_sprite;
                     first_person::model object{fpv_raster,{x+.5,y+.5,base},0,light,tile_target};
+                    if(furn.id.str().find("canvas_wall")!=std::string::npos || furn.id.str().find("canvas_door")!=std::string::npos) {
+                        const auto fabric=[&](int X,int Y){const tripoint_bub_ms q(X,Y,z);return here.inbounds(q) &&
+                            here.furn(q).id().str().find("canvas")!=std::string::npos;};
+                        if(fabric(x,y-1)+fabric(x,y+1)>fabric(x-1,y)+fabric(x+1,y))object.angle=first_person::pi/2;
+                    }
                     support=object.furniture(furn.id.str(),furn_image,
                         furn.has_flag(ter_furn_flag::TFLAG_FLAT_SURF) || furn.has_flag(ter_furn_flag::TFLAG_PLACE_ITEM));
                 }
@@ -2297,6 +2356,7 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                 if( here.sees_some_items(p,you) ) {
                     int i = 0;
                     for( const item &it : here.i_at(p) ) {
+                        if(puddle && it.made_of(phase_id::LIQUID))continue;
                         if( i >= 3 ) { break; }
                         const auto *item_image = material(it.typeId().str(),TILE_CATEGORY::ITEM,seed+i);
                         const int id = target(it.tname(),p);
@@ -2370,7 +2430,10 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
         }
     }
     const char *directions[8]={pgettext("fpv", "N"),pgettext("fpv", "NE"),pgettext("fpv", "E"),pgettext("fpv", "SE"),pgettext("fpv", "S"),pgettext("fpv", "SW"),pgettext("fpv", "W"),pgettext("fpv", "NW")};
+    first_person::gaze_key=picked>=0 && picked<static_cast<int>(targets.size())?first_person::target_key(targets[picked]):"";
+    first_person::current_action_label=first_person::action_label(first_person::repeat_action(first_person::gaze_key));
     std::string status=std::string(pgettext("fpv", "VIEW "))+directions[first_person::heading(first_person::yaw)]+
+        " | "+pgettext("fpv","LMB: ")+first_person::current_action_label+
         pgettext("fpv", " | MOVE ")+directions[first_person::facing]+" | Z "+std::to_string(origin.z())+
         " | "+to_string_time_of_day(calendar::turn);
     if( first_person::mouse_locked ) { status += pgettext("fpv", " | MOUSE LOCKED (Esc: release)"); }
