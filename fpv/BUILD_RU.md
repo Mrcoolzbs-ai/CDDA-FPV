@@ -45,3 +45,5 @@ c++ -std=c++17 -O1 fpv/tests/test_renderer.cpp -o /tmp/cdda-fpv-renderer-test
 Тест выполняет 19236 проверок, включая 19200 попиксельных проверок NaN; это не 19236 отдельных игровых сценариев.
 Для тестовой сцены см. extract_fixture_tiles.py (нужен Pillow). SDL smoke-test требует SDL2 и запускается отдельно.
 Тесты не заменяют запуск полной игры и проверку на целевой Windows.
+
+Русскую раскладку можно проверить командой `python3 fpv/tests/test_hud_layout.py` (Python 3 + msgfmt + C++17).

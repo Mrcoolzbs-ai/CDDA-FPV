@@ -214,7 +214,18 @@ void draw_first_person_hud( const point &dest, int width, int height,
         const int half=(w-pad)/2;
         text(pgettext("fpv", "Carried"),x+pad,y+row_h,half-pad,15);
         text(cell_reachable ? pgettext("fpv", "Cell (reachable)") : pgettext("fpv", "Cell (view only)"),x+half+pad,y+row_h,half-pad,15);
-        const int count=std::max(1,(ph-8*row_h-pad*2)/row_h);
+        const std::vector<std::pair<std::string,std::string>> operations={
+            {pgettext("fpv", "Take"),"take"},{pgettext("fpv", "Put"),"put"},{pgettext("fpv", "Wield"),"wield"},{pgettext("fpv", "Wear"),"wear"},{pgettext("fpv", "Use"),"use"},
+            {pgettext("fpv", "Interact"),"interact"},{pgettext("fpv", "Attack"),"attack"},{pgettext("fpv", "Open"),"open"},{pgettext("fpv", "Shut"),"close_door"},
+            {pgettext("fpv", "Up"),"up"},{pgettext("fpv", "Down"),"down"}};
+        int operation_rows=1, operation_width=0;
+        for(const auto &op:operations) {
+            const int bw=utf8_width(op.first)*fw+12;
+            if(operation_width && operation_width+bw>w-8) { ++operation_rows;operation_width=0; }
+            operation_width+=bw+4;
+        }
+        // Reserve the actual translated action rows, including at large font sizes.
+        const int count=std::max(1,(ph-fh-pad)/row_h-3-operation_rows);
         const auto column=[&](const std::vector<std::string> &labels,int &page,int side,int X) {
             page=std::clamp(page,0,std::max(0,(static_cast<int>(labels.size())-1)/count));
             for(int r=0;r<count;++r) {
@@ -234,10 +245,6 @@ void draw_first_person_hud( const point &dest, int width, int height,
         column(inventory_labels,inventory_page,0,x+4);
         column(cell_labels,cell_page,1,x+half+pad);
         int X=x+4,Y=y+(3+count)*row_h;
-        const std::vector<std::pair<std::string,std::string>> operations={
-            {pgettext("fpv", "Take"),"take"},{pgettext("fpv", "Put"),"put"},{pgettext("fpv", "Wield"),"wield"},{pgettext("fpv", "Wear"),"wear"},{pgettext("fpv", "Use"),"use"},
-            {pgettext("fpv", "Interact"),"interact"},{pgettext("fpv", "Attack"),"attack"},{pgettext("fpv", "Open"),"open"},{pgettext("fpv", "Shut"),"close_door"},
-            {pgettext("fpv", "Up"),"up"},{pgettext("fpv", "Down"),"down"}};
         for(const auto &op:operations) {
             const int bw=static_cast<int>(utf8_width(op.first))*fw+12;
             if(X+bw>x+w-4) { X=x+4;Y+=row_h; }
