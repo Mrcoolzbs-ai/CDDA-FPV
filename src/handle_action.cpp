@@ -2650,6 +2650,7 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                         } else {
                             item_location loc=locations[selected_row];
                             if(cmd=="expand")toggle_container(loc);
+                            else if(!item_accessible(loc)) { inventory_notice=pgettext("fpv","Cell is out of reach or its container is sealed."); }
                             else if(cmd=="item_menu") { inventory_open=false;inventory_item_menu(loc); }
                             else if(cmd=="take" && selected_side==1) {
                                 player_character.pick_up(drop_locations{{loc,0}}); inventory_open=false;

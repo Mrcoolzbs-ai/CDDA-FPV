@@ -473,9 +473,21 @@ std::vector<std::pair<std::string,int>> player_morale::get_entries() const
 {
     std::vector<std::pair<std::string,int>> result;
     const morale_mult mult=get_temper_mult();
+    double positive=0,negative=0;
     for(const morale_point &m:points) {
         const int value=m.get_net_bonus(mult);
         if(value!=0)result.emplace_back(m.get_name(),value);
+        (value>0?positive:negative)+=double(value)*value;
+    }
+    // Medication modifies the nonlinear total, not individual point bonuses.
+    int subtotal=std::sqrt(positive)-std::sqrt(negative);
+    if(took_prozac) {
+        const int before=subtotal;subtotal*=morale_mults::prozac;
+        result.emplace_back(pgettext("fpv","Antidepressant (total adjustment)"),subtotal-before);
+        if(took_prozac_bad) {
+            const int before_bad=subtotal;subtotal*=morale_mults::prozac_bad;
+            result.emplace_back(pgettext("fpv","Adverse reaction (total adjustment)"),subtotal-before_bad);
+        }
     }
     std::stable_sort(result.begin(),result.end(),[](const auto &a,const auto &b){return a.second>b.second;});
     return result;

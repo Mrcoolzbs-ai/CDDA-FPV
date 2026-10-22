@@ -59,6 +59,19 @@ inline void append_container(item_location loc,int depth,std::vector<item_locati
 }
 inline std::vector<std::pair<weak_ptr_fast<monster>,std::uint64_t>> monster_identities;
 inline std::uint64_t next_monster_identity=1;
+// The two states of a door are one physical target, not separate repeat-action slots.
+template<class ID> inline std::string object_state_family(ID initial) {
+    std::vector<ID> states{initial};std::string key=initial.str();
+    for(size_t i=0;i<states.size() && i<16;++i) {
+        const auto &object=states[i].obj();
+        for(const auto &state:{object.open,object.close}) {
+            if(state.is_null() || !state.is_valid())continue;
+            key=std::min(key,state.str());
+            if(std::find(states.begin(),states.end(),state)==states.end())states.push_back(state);
+        }
+    }
+    return key;
+}
 inline std::string target_key(const target &t) {
     map &here=get_map();const tripoint_bub_ms p(t.x,t.y,t.z);
     if(t.creature) {
@@ -74,7 +87,7 @@ inline std::string target_key(const target &t) {
     }
     const auto abs=here.get_abs(p);
     return "tile:"+std::to_string(abs.x())+":"+std::to_string(abs.y())+":"+std::to_string(abs.z())+":"+
-        here.ter(p).id().str()+":"+here.furn(p).id().str();
+        object_state_family(here.ter(p).id())+":"+object_state_family(here.furn(p).id());
 }
 inline std::string action_label(const std::string &action) {
     if(action=="attack")return pgettext("fpv","Attack");

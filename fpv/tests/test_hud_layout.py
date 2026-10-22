@@ -57,7 +57,10 @@ const char *pgettext(const char *,const char *s) {
  return translations.at(s).c_str();
 }
 '''
-    prefix = prefix.replace('HEADER_PATH', json.dumps(str(root / 'src/first_person.h')))
+    header_path = str(root / 'src/first_person.h')
+    if Path('/usr/bin/cygpath.exe').exists():
+        header_path = subprocess.check_output(['cygpath', '-m', header_path], text=True).strip()
+    prefix = prefix.replace('HEADER_PATH', json.dumps(header_path))
     prefix = prefix.replace('TRANSLATIONS', '{' + ','.join('{' + json.dumps(k, ensure_ascii=False) + ',' + json.dumps(v, ensure_ascii=False) + '}' for k,v in entries.items()) + '}')
     main = r'''
 int main() {

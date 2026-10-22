@@ -815735,3 +815735,11 @@ msgstr "ЛКМ: "
 
 msgid "0: automatic, render the full loaded map with character visibility and recorded map memory. Positive values limit radius in map cells."
 msgstr "0: автоматически, вся загруженная карта с учётом зрения персонажа и записанной памяти карты. Положительное значение ограничивает радиус в клетках."
+
+msgctxt "fpv"
+msgid "Antidepressant (total adjustment)"
+msgstr "Антидепрессант (поправка к итогу)"
+
+msgctxt "fpv"
+msgid "Adverse reaction (total adjustment)"
+msgstr "Побочная реакция (поправка к итогу)"
