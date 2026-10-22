@@ -2696,6 +2696,8 @@ input_context get_default_mode_input_context()
     ctxt.set_iso( true );
 #if defined(TILES)
     ctxt.register_action( "toggle_first_person", to_translation( "Toggle experimental first-person view" ) );
+    ctxt.register_action("fpv_interact",to_translation("FPV: interact with gaze target"));
+    ctxt.register_action("fpv_context",to_translation("FPV: target action menu"));
     ctxt.register_action( "fpv_mouse_look", to_translation( "Toggle first-person mouse look" ) );
 #endif
     ctxt.register_action( "UP", to_translation( "Move north" ) );

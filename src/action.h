@@ -323,6 +323,8 @@ enum action_id : int {
     /** Experimental first-person camera */
     ACTION_TOGGLE_FIRST_PERSON,
     ACTION_FPV_MOUSE_LOOK,
+    ACTION_FPV_INTERACT,
+    ACTION_FPV_CONTEXT,
     /** Turn admin panel on/off */
     ACTION_TOGGLE_PANEL_ADM,
     /** panels management */

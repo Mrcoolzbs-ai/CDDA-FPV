@@ -1,3 +1,4 @@
+#include "input_context.h"
 #include "translations.h"
 #include "cursesdef.h" // IWYU pragma: associated
 #include "sdltiles.h" // IWYU pragma: associated
@@ -167,10 +168,25 @@ void draw_first_person_hud( const point &dest, int width, int height,
         text(target,dest.x+pad*2,dest.y+fh+pad*3+pad/2,target_width-pad*2,15);
     }
     first_person::buttons.clear();
-    const std::array<std::pair<const char *,action_id>,6> actions={{{pgettext("fpv", "Wait"),ACTION_PAUSE},
-        {pgettext("fpv", "Pick up"),ACTION_PICKUP},{pgettext("fpv", "Inventory"),ACTION_INVENTORY},{pgettext("fpv", "Examine"),ACTION_EXAMINE},
-        {pgettext("fpv", "Fire"),ACTION_FIRE},{pgettext("fpv", "Reload"),ACTION_RELOAD_WIELDED}}};
-    const int button_h=std::max(44,fh+pad*2);
+    const input_context key_context=get_default_mode_input_context();
+    const auto caption=[&](const char *label,action_id action) {
+        const auto keys=key_context.keys_bound_to(action_ident(action));
+        const std::string key=keys.empty()?"—":keys.front().short_description();
+        return std::string(label)+" ("+key+")";
+    };
+    const std::vector<std::pair<std::string,action_id>> actions={
+        {caption(pgettext("fpv","Wait"),ACTION_PAUSE),ACTION_PAUSE},
+        {caption(pgettext("fpv","Pick up"),ACTION_PICKUP),ACTION_PICKUP},
+        {caption(pgettext("fpv","Inventory"),ACTION_INVENTORY),ACTION_INVENTORY},
+        {caption(pgettext("fpv","Interact"),ACTION_EXAMINE),ACTION_EXAMINE},
+        {caption(pgettext("fpv","Open"),ACTION_OPEN),ACTION_OPEN},
+        {caption(pgettext("fpv","Shut"),ACTION_CLOSE),ACTION_CLOSE},
+        {caption(pgettext("fpv","Smash"),ACTION_SMASH),ACTION_SMASH},
+        {caption(pgettext("fpv","Fire"),ACTION_FIRE),ACTION_FIRE},
+        {caption(pgettext("fpv","Reload"),ACTION_RELOAD_WIELDED),ACTION_RELOAD_WIELDED},
+        {caption(pgettext("fpv","Up"),ACTION_MOVE_UP),ACTION_MOVE_UP},
+        {caption(pgettext("fpv","Down"),ACTION_MOVE_DOWN),ACTION_MOVE_DOWN}};
+    const int button_h=std::max(28,fh+12);
     int rows=1, row_used=0;
     for( const auto &a : actions ) {
         const int bw=static_cast<int>(utf8_width(a.first))*fw+pad*2;
@@ -198,10 +214,9 @@ void draw_first_person_hud( const point &dest, int width, int height,
     if(first_person::inventory_open) {
         using namespace first_person;
         // Occupies only the terrain viewport, preserving the standard right sidebar.
-        buttons.clear();
         const int x=dest.x+pad, y=dest.y+fh+pad*3, w=width-pad*2;
         const int row_h=std::max(28,fh+10);
-        const int ph=height-(y-dest.y)-pad;
+        const int ph=bottom-y-pad;
         rect(x,y,w,ph,SDL_Color{16,21,28,255});
         const auto button=[&](const std::string &label,const std::string &command,int X,int Y,int W) {
             rect(X,Y,W,row_h-3,SDL_Color{37,46,59,255});
@@ -215,9 +230,8 @@ void draw_first_person_hud( const point &dest, int width, int height,
         text(pgettext("fpv", "Carried"),x+pad,y+row_h,half-pad,15);
         text(cell_reachable ? pgettext("fpv", "Cell (reachable)") : pgettext("fpv", "Cell (view only)"),x+half+pad,y+row_h,half-pad,15);
         const std::vector<std::pair<std::string,std::string>> operations={
-            {pgettext("fpv", "Take"),"take"},{pgettext("fpv", "Put"),"put"},{pgettext("fpv", "Wield"),"wield"},{pgettext("fpv", "Wear"),"wear"},{pgettext("fpv", "Use"),"use"},
-            {pgettext("fpv", "Interact"),"interact"},{pgettext("fpv", "Attack"),"attack"},{pgettext("fpv", "Open"),"open"},{pgettext("fpv", "Shut"),"close_door"},
-            {pgettext("fpv", "Up"),"up"},{pgettext("fpv", "Down"),"down"}};
+            {pgettext("fpv","Take"),"take"},{pgettext("fpv","Put"),"put"},
+            {pgettext("fpv","Wield"),"wield"},{pgettext("fpv","Wear"),"wear"},{pgettext("fpv","Use"),"use"}};
         int operation_rows=1, operation_width=0;
         for(const auto &op:operations) {
             const int bw=utf8_width(op.first)*fw+12;
@@ -251,7 +265,7 @@ void draw_first_person_hud( const point &dest, int width, int height,
             if(Y+row_h>y+ph-fh-pad) { break; }
             button(op.first,op.second,X,Y,bw); X+=bw+4;
         }
-        text(inventory_notice.empty() ? pgettext("fpv", "Choose item, then action. Up/Down: stairs beneath you.") : inventory_notice,
+        text(inventory_notice.empty() ? pgettext("fpv", "Select an item. World actions are on the bottom toolbar.") : inventory_notice,
             x+pad,y+ph-fh-pad,w-pad*2,7);
     }
     if(first_person::inventory_open) { return; }
@@ -3407,7 +3421,7 @@ static void CheckMessages()
                 if( first_person::enabled && first_person::gameplay_input &&
                     (ev.button.button == SDL_BUTTON_LEFT || ev.button.button == SDL_BUTTON_RIGHT) ) {
                     bool handled=false;
-                    if(!first_person::mouse_locked) for( const auto &button : first_person::buttons ) {
+                    if(!first_person::mouse_locked && ev.button.button==SDL_BUTTON_LEFT) for( const auto &button : first_person::buttons ) {
                         if( ev.button.x >= button.x && ev.button.x < button.x+button.w &&
                             ev.button.y >= button.y && ev.button.y < button.y+button.h ) {
                             if(button.action.rfind("fpv:",0)==0) {
@@ -3419,14 +3433,13 @@ static void CheckMessages()
                         }
                     }
                     if( !handled && !first_person::inventory_open ) {
-                        const int id=first_person::mouse_locked ? first_person::gaze_id :
-                            first_person::pick(ev.button.x,ev.button.y);
-                        if(first_person::select_target(id)) {
-                            first_person::ui_command="context";
-                            first_person::pending_action=action_ident(ACTION_INVENTORY);
+                        if(first_person::select_target(first_person::gaze_id)) {
+                            first_person::pending_action=action_ident(ev.button.button==SDL_BUTTON_LEFT ?
+                                ACTION_FPV_INTERACT:ACTION_FPV_CONTEXT);
                             last_input=input_event(MouseInput::Move,input_event_t::mouse);
-                            handled=true;
                         }
+                        // Never fall through into top-down movement/attack for an empty gaze target.
+                        handled=true;
                     }
                     if( handled ) { break; }
                 }

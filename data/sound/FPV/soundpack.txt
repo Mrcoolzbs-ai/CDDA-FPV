@@ -1,0 +1,2 @@
+NAME: fpv-synth
+VIEW: FPV Synth (basic test audio)

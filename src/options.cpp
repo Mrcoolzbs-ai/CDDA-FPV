@@ -1743,7 +1743,8 @@ void options_manager::add_options_general()
              soundpacks, std::any_of( soundpacks.begin(), soundpacks.end(),
         []( const id_and_option & option ) {
             return option.first == "CC-Sounds";
-        } )  ? "CC-Sounds" : "basic",
+        } )  ? "CC-Sounds" : (std::any_of(soundpacks.begin(), soundpacks.end(),
+        [](const id_and_option &option) { return option.first == "fpv-synth"; }) ? "fpv-synth" : "basic"),
         COPT_NO_SOUND_HIDE
            ); // populate the options dynamically
 
@@ -2452,7 +2453,7 @@ void options_manager::add_options_graphics()
 
         add( "FPV_LINK_SPRITE", page_id, to_translation("FPV: link mouse and character heading"),
              to_translation("Mouse look updates the experimental movement heading and the left/right character sprite. Does not change CDDA field of view."),
-             false, COPT_CURSES_HIDE );
+             true, COPT_CURSES_HIDE );
         add( "FPV_MOUSE_SENS", page_id, to_translation("FPV: mouse sensitivity"),
              to_translation("Radians per mouse pixel in captured mouse-look mode."),
              0.0005f, 0.02f, 0.003f, 0.0005f, COPT_CURSES_HIDE, "%.4f" );
@@ -2461,7 +2462,7 @@ void options_manager::add_options_graphics()
              240, 960, 480, COPT_CURSES_HIDE );
         add( "FPV_RANGE", page_id, to_translation("FPV: horizontal render distance"),
              to_translation("Maximum rendered radius in map cells, limited by character visibility."),
-             4, 24, 12, COPT_CURSES_HIDE );
+             4, 60, 32, COPT_CURSES_HIDE );
         add( "FPV_Z_RADIUS", page_id, to_translation("FPV: vertical render radius"),
              to_translation("Maximum number of loaded z-levels above/below the character to render."),
              1, 10, 10, COPT_CURSES_HIDE );

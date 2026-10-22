@@ -815604,3 +815604,21 @@ msgstr "FPV: горизонтальный угол обзора"
 #. CDDA-FPV interface
 msgid "Camera field of view only; does not change character sight."
 msgstr "Только угол камеры: не меняет видимость персонажа."
+
+msgctxt "fpv"
+msgid "No visible target under the crosshair."
+msgstr "Под прицелом нет видимой цели."
+
+msgctxt "fpv"
+msgid "Smash"
+msgstr "Разбить"
+
+msgctxt "fpv"
+msgid "Select an item. World actions are on the bottom toolbar."
+msgstr "Выберите вещь. Действия с миром — на нижней панели."
+
+msgid "FPV: interact with gaze target"
+msgstr "FPV: взаимодействие с целью под прицелом"
+
+msgid "FPV: target action menu"
+msgstr "FPV: меню действий с целью"

@@ -47,3 +47,16 @@ c++ -std=c++17 -O1 fpv/tests/test_renderer.cpp -o /tmp/cdda-fpv-renderer-test
 Тесты не заменяют запуск полной игры и проверку на целевой Windows.
 
 Русскую раскладку можно проверить командой `python3 fpv/tests/test_hud_layout.py` (Python 3 + msgfmt + C++17).
+
+## Дополнения 0.5
+
+После применения патча к коммиту `d7de4a8dc4e0d8ab29a07cbbccdb2cd95972e67d` доступны новые процедурные сцены и тесты:
+
+```sh
+python3 fpv/tools/generate_sounds.py
+c++ -std=c++17 -O1 fpv/tests/test_scene.cpp -o /tmp/fpv-scene-test
+/tmp/fpv-scene-test
+python3 fpv/tests/test_hud_layout.py
+```
+
+В дистрибутиве сохраните `data/sound/FPV` вместе с WAV и soundpack.txt. Это исходные синтезированные эффекты CC0, без дополнительных кодеков и загрузок. Минимальный `fpv/config-ru/options.json` включает FPV Synth, русский, радиус 32 и связь направления с мышью. Не затирайте им пользовательские настройки существующей установки.

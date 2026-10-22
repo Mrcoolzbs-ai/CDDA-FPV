@@ -929,10 +929,10 @@ static void haul_toggle()
     get_avatar().toggle_hauling();
 }
 
-static void smash()
+static void smash( const std::optional<tripoint_bub_ms> &gaze_target = std::nullopt )
 {
     const bool allow_floor_bash = debug_mode; // Should later become "true"
-    const std::optional<tripoint_bub_ms> smashp_ = choose_adjacent( _( "Smash where?" ),
+    const std::optional<tripoint_bub_ms> smashp_ = gaze_target ? gaze_target : choose_adjacent( _( "Smash where?" ),
             allow_floor_bash );
     if( !smashp_ ) {
         return;
@@ -3241,11 +3241,45 @@ bool game::handle_action()
             return false;
         }
         if( first_person::enabled && !veh_ctrl ) {
-            if(act==ACTION_EXAMINE || act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_PICKUP ||
-               act==ACTION_PICKUP_ALL) {
-                if(!first_person::select_target(first_person::gaze_id)) { first_person::has_selected_target=false; }
-                first_person::ui_command="context";
-                act=ACTION_INVENTORY;
+            if(act==ACTION_FPV_INTERACT || act==ACTION_FPV_CONTEXT || act==ACTION_EXAMINE ||
+               act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_PICKUP || act==ACTION_PICKUP_ALL ||
+               act==ACTION_OPEN || act==ACTION_CLOSE || act==ACTION_SMASH) {
+                using namespace first_person;
+                if(!select_target(gaze_id)) {
+                    add_msg(m_info,pgettext("fpv","No visible target under the crosshair."));
+                    return false;
+                }
+                const auto p=cell_position();
+                const bool reachable=can_reach(player_character,here,p);
+                inventory_open=false;selected_row=-1;
+                if(act==ACTION_FPV_CONTEXT) {
+                    uilist menu;menu.text=selected_target.label;
+                    menu.addentry(0,reachable,'e',pgettext("fpv","Interact"));
+                    menu.addentry(1,reachable,'g',pgettext("fpv","Pick up"));
+                    menu.addentry(2,reachable,'o',pgettext("fpv","Open"));
+                    menu.addentry(3,reachable,'c',pgettext("fpv","Shut"));
+                    menu.addentry(4,reachable && p!=player_character.pos_bub(here) &&
+                        get_creature_tracker().creature_at(p,true),'a',pgettext("fpv","Attack"));
+                    if(!reachable)menu.text+="\n"+std::string(pgettext("fpv","Out of reach: approach the selected cell."));
+                    menu.query();
+                    if(menu.ret<0)return false;
+                    if(menu.ret==4) {
+                        avatar_action::move(player_character,here,p-player_character.pos_bub(here));
+                        invalidate_main_ui_adaptor();return true;
+                    }
+                    act=menu.ret==1?ACTION_PICKUP:menu.ret==2?ACTION_OPEN:menu.ret==3?ACTION_CLOSE:ACTION_FPV_INTERACT;
+                }
+                if(!reachable) {
+                    add_msg(m_info,pgettext("fpv","Out of reach: approach the selected cell."));
+                    invalidate_main_ui_adaptor();return false;
+                }
+                if(act==ACTION_PICKUP || act==ACTION_PICKUP_ALL)pickup(p);
+                else if(act==ACTION_OPEN)open(p);
+                else if(act==ACTION_CLOSE)doors::close_door(here,player_character,p);
+                else if(act==ACTION_SMASH)smash(p);
+                else if(act==ACTION_FPV_INTERACT && here.has_flag(ter_furn_flag::TFLAG_DOOR,p) && here.ter(p).obj().movecost==0)open(p);
+                else examine(p,act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_FPV_INTERACT);
+                invalidate_main_ui_adaptor();return true;
             }
             if( act == ACTION_SELECT || act == ACTION_SEC_SELECT || act == ACTION_CLICK_AND_DRAG ) {
                 return false; // World clicks are handled by depth-buffer picking in SDL.

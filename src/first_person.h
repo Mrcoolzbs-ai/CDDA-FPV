@@ -143,20 +143,24 @@ class rasterizer
         std::vector<double> depth;
         std::vector<int> object;
         camera view;
-        struct glass_face { std::array<vec3,4> p; std::uint32_t color; int id; double distance; };
+        struct glass_face { std::array<vec3,4> p; std::uint32_t color; int id; double distance; double opacity; const image *tex; double light; bool pickable; };
         std::vector<glass_face> glass;
         std::vector<double> pick_depth;
         double alpha=1;
-        void transparent_quad(const std::array<vec3,4> &p,std::uint32_t color,int id) {
+        bool transparent_pick=true;
+        void transparent_quad(const std::array<vec3,4> &p,std::uint32_t color,int id,
+                              double opacity=.24,const image *tex=nullptr,double light=1,bool pickable=true) {
             double distance=0; for(const auto &v:p) { distance+=view.transform(v).z; }
-            glass.push_back({p,color,id,distance/4});
+            glass.push_back({p,color,id,distance/4,std::clamp(opacity,.001,.999),tex,light,pickable});
         }
         void finish_transparency() {
             pick_depth=depth;
             std::stable_sort(glass.begin(),glass.end(),[](const glass_face &a,const glass_face &b) {
                 return a.distance>b.distance;
             });
-            for(const auto &f:glass) { alpha=.24; quad(f.p,nullptr,f.color,1,false,f.id); }
+            for(const auto &f:glass) { alpha=f.opacity; transparent_pick=f.pickable;
+                quad(f.p,f.tex,f.color,f.light,f.tex!=nullptr,f.id); }
+            transparent_pick=true;
             alpha=1; glass.clear();
         }
         void begin( int width, int height, camera c ) {
@@ -247,7 +251,7 @@ class rasterizer
                         const double u = (a*tri[0].u*invz[0]+b*tri[1].u*invz[1]+c*tri[2].u*invz[2])/iz;
                         const double v = (a*tri[0].v*invz[0]+b*tri[1].v*invz[1]+c*tri[2].v*invz[2])/iz;
                         color = tex->sample(u,v);
-                        if( cutout && (color>>24) < 100 ) { continue; }
+                        if( cutout && (color>>24) < (alpha<1 ? 1u : 100u) ) { continue; }
                         if( !cutout ) { color = over(color, fallback); }
                     }
                     const double shade = std::clamp(light/(1+z*.035),0.06,1.0);
@@ -256,8 +260,8 @@ class rasterizer
                         shaded |= static_cast<std::uint32_t>(((color>>shift)&255)*shade)<<shift;
                     }
                     if(alpha<1) {
-                        pixels[index]=over((static_cast<std::uint32_t>(alpha*255)<<24)|(shaded&0xffffff),pixels[index]);
-                        if(z<pick_depth[index]) { pick_depth[index]=z; object[index]=id; }
+                        pixels[index]=over((static_cast<std::uint32_t>(alpha*(color>>24))<<24)|(shaded&0xffffff),pixels[index]);
+                        if(transparent_pick && z<pick_depth[index]) { pick_depth[index]=z; object[index]=id; }
                     } else { pixels[index]=shaded; depth[index]=z; object[index]=id; }
                 }
             }

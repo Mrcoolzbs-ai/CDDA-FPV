@@ -2,5 +2,21 @@
   {
     "name": "USE_LANG",
     "value": "ru"
+  },
+  {
+    "name": "FPV_LINK_SPRITE",
+    "value": "true"
+  },
+  {
+    "name": "FPV_RANGE",
+    "value": "32"
+  },
+  {
+    "name": "SOUND_ENABLED",
+    "value": "true"
+  },
+  {
+    "name": "SOUNDPACKS",
+    "value": "fpv-synth"
   }
 ]

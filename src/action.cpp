@@ -357,6 +357,10 @@ std::string action_ident( action_id act )
             return "toggle_first_person";
         case ACTION_FPV_MOUSE_LOOK:
             return "fpv_mouse_look";
+        case ACTION_FPV_INTERACT:
+            return "fpv_interact";
+        case ACTION_FPV_CONTEXT:
+            return "fpv_context";
         case ACTION_TOGGLE_PANEL_ADM:
             return "toggle_panel_adm";
         case ACTION_PANEL_MGMT:

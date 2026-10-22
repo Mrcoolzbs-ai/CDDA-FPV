@@ -1,0 +1,362 @@
+[
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "default",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_water",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_barefoot",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_grass",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_dirt",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_metal",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "walk_tarmac",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "plmove",
+    "variant": "clear_obstacle",
+    "volume": 65,
+    "files": [
+      "step.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "fire_gun",
+    "variant": "default",
+    "volume": 85,
+    "files": [
+      "gun.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "fire_gun_distant",
+    "variant": "default",
+    "volume": 85,
+    "files": [
+      "gun.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_swing",
+    "variant": "default",
+    "volume": 60,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_swing",
+    "variant": "small_bash",
+    "volume": 60,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_swing",
+    "variant": "big_bash",
+    "volume": 60,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_swing",
+    "variant": "small_cutting",
+    "volume": 60,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_swing",
+    "variant": "big_cutting",
+    "volume": 60,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_hit_metal",
+    "variant": "default",
+    "volume": 70,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "melee_hit_flesh",
+    "variant": "default",
+    "volume": 70,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "bullet_hit",
+    "variant": "hit_wall",
+    "volume": 65,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "bullet_hit",
+    "variant": "hit_metal",
+    "volume": 65,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "bullet_hit",
+    "variant": "hit_flesh",
+    "volume": 65,
+    "files": [
+      "hit.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "open_door",
+    "variant": "default",
+    "volume": 60,
+    "files": [
+      "door.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "close_door",
+    "variant": "default",
+    "volume": 60,
+    "files": [
+      "door.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "menu_move",
+    "variant": "default",
+    "volume": 45,
+    "files": [
+      "beep.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "menu_error",
+    "variant": "default",
+    "volume": 45,
+    "files": [
+      "beep.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "daytime",
+    "volume": 30,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "nighttime",
+    "volume": 30,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_CLEAR",
+    "volume": 30,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_SUNNY",
+    "volume": 30,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_CLOUDY",
+    "volume": 30,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "underground",
+    "volume": 8,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "indoors",
+    "volume": 8,
+    "files": [
+      "wind.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "indoors_rain",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_DRIZZLE",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_RAINY",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_RAINSTORM",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_THUNDER",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_FLURRIES",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_SNOWSTORM",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_SNOW",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  },
+  {
+    "type": "sound_effect",
+    "id": "environment",
+    "variant": "WEATHER_PORTAL_STORM",
+    "volume": 38,
+    "files": [
+      "rain.wav"
+    ]
+  }
+]

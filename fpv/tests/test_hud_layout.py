@@ -47,8 +47,11 @@ struct Font {int width=8,height=16;
  }
 };
 std::unique_ptr<Font> font=std::make_unique<Font>();
-enum action_id {ACTION_PAUSE,ACTION_PICKUP,ACTION_INVENTORY,ACTION_EXAMINE,ACTION_FIRE,ACTION_RELOAD_WIELDED};
-std::string action_ident(action_id a) {const char *ids[]={"pause","pickup","inventory","examine","fire","reload"};return ids[a];}
+enum action_id {ACTION_PAUSE,ACTION_PICKUP,ACTION_INVENTORY,ACTION_EXAMINE,ACTION_FIRE,ACTION_RELOAD_WIELDED,ACTION_OPEN,ACTION_CLOSE,ACTION_SMASH,ACTION_MOVE_UP,ACTION_MOVE_DOWN};
+std::string action_ident(action_id a) {const char *ids[]={"pause","pickup","inventory","examine","fire","reload","open","close","smash","up","down"};return ids[a];}
+struct input_event {std::string short_description()const{return "Key";}};
+struct input_context {std::vector<input_event> keys_bound_to(const std::string &)const{return {{}};}};
+input_context get_default_mode_input_context(){return {};}
 const char *pgettext(const char *,const char *s) {
  static const std::map<std::string,std::string> translations=TRANSLATIONS;
  return translations.at(s).c_str();
@@ -72,11 +75,17 @@ int main() {
    const auto &a=buttons[i];commands.insert(a.action);
    if(a.x<0||a.y<0||a.x+a.w>width||a.y+a.h>600) throw std::runtime_error("Button outside viewport");++checks;
    for(size_t j=0;j<i;++j) {const auto &b=buttons[j];
-    if(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y)throw std::runtime_error("Overlapping buttons");++checks;
+    if(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y)throw std::runtime_error("Overlapping buttons: "+a.action+" / "+b.action+" width="+std::to_string(width)+" font="+std::to_string(fw));++checks;
    }
   }
-  if(!inventory && buttons.size()!=6)throw std::runtime_error("Missing HUD action");
-  if(inventory)for(const char *op:{"close","take","put","wield","wear","use","interact","attack","open","close_door","up","down"}) {
+  if(!inventory && buttons.size()!=11)throw std::runtime_error("Missing HUD action");
+  if(inventory) {
+   for(const char *world:{"pause","pickup","inventory","examine","open","close","smash","fire","reload","up","down"})
+    if(!commands.count(world))throw std::runtime_error("Missing world toolbar in inventory");
+   for(const char *old:{"interact","attack","open","close_door","up","down"})
+    if(commands.count(std::string("fpv:")+old))throw std::runtime_error("World action leaked into item controls");
+  }
+  if(inventory)for(const char *op:{"close","take","put","wield","wear","use"}) {
    if(!commands.count(std::string("fpv:")+op))throw std::runtime_error(std::string("Missing inventory action: ")+op);++checks;
   }
  }
