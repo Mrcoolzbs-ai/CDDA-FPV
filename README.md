@@ -101,3 +101,5 @@ CPU-рендерер может работать медленно. Попроб�
 Инструкции: [fpv/BUILD_RU.md](fpv/BUILD_RU.md). Пройденные проверки: [fpv/TEST_REPORT.md](fpv/TEST_REPORT.md).
 
 Релизы: https://github.com/Mrcoolzbs-ai/CDDA-FPV/releases
+
+Скриншоты проверенной русской сборки: [инвентарь](fpv/screenshots/INVENTORY_RU.png), [вид от первого лица](fpv/screenshots/FPV_RU.png).
