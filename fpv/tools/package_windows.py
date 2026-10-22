@@ -2,7 +2,7 @@
 """Package a freshly built Windows executable and its recursive PE dependencies.
 Run from the repository root under MSYS2; missing non-system imports are fatal.
 """
-import argparse, hashlib, json, re, shutil, subprocess, tempfile, zipfile
+import argparse, hashlib, json, os, re, shutil, subprocess, tempfile, zipfile
 from pathlib import Path
 p=argparse.ArgumentParser()
 p.add_argument('--exe',required=True,type=Path)
@@ -13,6 +13,14 @@ root=Path(__file__).resolve().parents[2]
 # These DLLs are provided by supported Windows installations, not the SDK.
 system=set('kernel32.dll user32.dll gdi32.dll advapi32.dll shell32.dll ole32.dll oleaut32.dll uuid.dll comdlg32.dll comctl32.dll msvcrt.dll ucrtbase.dll ws2_32.dll winmm.dll imm32.dll version.dll setupapi.dll cfgmgr32.dll shlwapi.dll bcrypt.dll crypt32.dll secur32.dll ntdll.dll rpcrt4.dll powrprof.dll psapi.dll iphlpapi.dll dbghelp.dll dwmapi.dll hid.dll winspool.drv dinput8.dll dxgi.dll d3d11.dll opengl32.dll glu32.dll avrt.dll propsys.dll mfplat.dll mf.dll mfreadwrite.dll strmiids.dll ksuser.dll msacm32.dll msimg32.dll winhttp.dll normaliz.dll dnsapi.dll wldap32.dll authz.dll netapi32.dll userenv.dll'.split())
 dlls={f.name.lower():f for f in a.dll_dir.glob('*.dll')}
+# Resolve additional genuine OS imports (e.g. DirectSound) against the runner's
+# system directory, not by silently ignoring every missing DLL.
+windir=os.environ.get('WINDIR','')
+if windir and Path('/usr/bin/cygpath.exe').exists():
+    windir=subprocess.check_output(['cygpath','-u',windir],text=True).strip()
+system_dir=Path(windir)/'System32' if windir else Path('/nonexistent')
+os_imports={f.name.lower() for f in system_dir.glob('*') if f.is_file()}
+
 if not a.exe.is_file():raise SystemExit('Fresh EXE missing')
 mo=root/'lang/mo/ru/LC_MESSAGES/cataclysm-dda.mo'
 if not mo.is_file():raise SystemExit('Russian MO catalog missing')
@@ -28,7 +36,9 @@ with tempfile.TemporaryDirectory(prefix='fpv-package-') as tmp:
             key=name.lower()
             if key in system or key.startswith(('api-ms-win-','ext-ms-win-')):continue
             if key in copied:continue
-            if key not in dlls:missing.add(name);continue
+            if key not in dlls:
+                if key not in os_imports:missing.add(name)
+                continue
             copied.add(key)
             target=dest/dlls[key].name
             shutil.copy2(dlls[key],target);queue.append(target)
