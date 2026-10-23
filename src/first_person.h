@@ -20,6 +20,8 @@ constexpr double story_height = 3.0;
 inline bool enabled = false;
 inline bool gameplay_input = false;
 inline bool mouse_locked = false;
+// Consume the release belonging to a handled HUD press, even if a native menu opens meanwhile.
+inline unsigned swallowed_mouse_buttons = 0;
 inline int facing = 0; // movement heading, N NE E SE S SW W NW
 inline double yaw = 0.0;
 inline double pitch = 0.0;
@@ -289,5 +291,17 @@ class rasterizer
             }
         }
 };
+// Tint only already depth-tested visible pixels; leave depth and picking untouched.
+inline void highlight_objects(rasterizer &r,const std::vector<int> &ids) {
+    const auto selected=[&](int i){return i>=0 && i<static_cast<int>(r.object.size()) &&
+        std::find(ids.begin(),ids.end(),r.object[i])!=ids.end();};
+    for(int y=0;y<r.h;++y)for(int x=0;x<r.w;++x) {
+        const int i=y*r.w+x;
+        if(!selected(i))continue;
+        const bool edge=x==0 || y==0 || x==r.w-1 || y==r.h-1 ||
+            !selected(i-1) || !selected(i+1) || !selected(i-r.w) || !selected(i+r.w);
+        r.pixels[i]=over(edge?0x387faac0:0x0e90b0bd,r.pixels[i]);
+    }
+}
 } // namespace first_person
 #endif

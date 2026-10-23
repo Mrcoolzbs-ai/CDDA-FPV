@@ -48,6 +48,25 @@ int main(int argc,char **argv) {
  remember_action("monster:1","interact");
  check(repeat_action("monster:1")=="interact","new selection replaces last action");
  remember_action("","attack");check(repeat_action("")=="interact","empty gaze never remembers attack");
+ // Highlight modifies visible colors only, never depth, IDs or unrelated surfaces.
+ r.begin(160,100,c);
+ r.quad({{{-2,-3,0},{3,-3,0},{3,-3,3},{-2,-3,3}}},nullptr,0xffbbaa99,1,false,7);
+ r.box({0,-1,.2},{.5,-.5,1.2},nullptr,0xff556677,1,9);
+ const auto before=r.pixels;const auto ids=r.object;const auto depths=r.depth;
+ highlight_objects(r,{9});
+ check(r.object==ids,"highlight never changes target IDs");
+ check(r.depth==depths,"highlight never changes depth");
+ check(r.pixels!=before,"target tint is visible");
+ bool unrelated=true;for(size_t i=0;i<ids.size();++i)if(ids[i]!=9 && r.pixels[i]!=before[i])unrelated=false;
+ check(unrelated,"occluded/other cells are not highlighted");
+ const auto highlighted=r.pixels;highlight_objects(r,{});
+ check(r.pixels==highlighted,"empty highlight does nothing");
+ check(std::all_of(curtain_texture().pixels.begin(),curtain_texture().pixels.end(),[](unsigned p){return p>>24==255;}),"closed curtains are opaque cloth");
+ for(const char *id:{"f_bed","f_chair","f_sofa"}) {
+  r.begin(320,200,c);model a{r,{.5,-1,0},0,1,4};a.furniture(id,nullptr,true);const auto first=r.pixels;
+  r.begin(320,200,c);model b{r,{.5,-1,0},pi/2,1,4};b.furniture(id,nullptr,true);
+  check(r.pixels!=first,"asymmetric furniture responds to orientation");
+ }
  if(argc>1) {
   r.begin(640,400,c);draw_sky(r,.4,.9,.7,12);
   r.quad({{{-10,-20,0},{10,-20,0},{10,5,0},{-10,5,0}}},nullptr,0xff5c6655,.8,false,1);

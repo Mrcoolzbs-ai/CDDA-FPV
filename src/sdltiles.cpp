@@ -185,7 +185,10 @@ void draw_first_person_hud( const point &dest, int width, int height,
         {caption(pgettext("fpv","Fire"),ACTION_FIRE),ACTION_FIRE},
         {caption(pgettext("fpv","Reload"),ACTION_RELOAD_WIELDED),ACTION_RELOAD_WIELDED},
         {caption(pgettext("fpv","Up"),ACTION_MOVE_UP),ACTION_MOVE_UP},
-        {caption(pgettext("fpv","Down"),ACTION_MOVE_DOWN),ACTION_MOVE_DOWN}};
+        {caption(pgettext("fpv","Down"),ACTION_MOVE_DOWN),ACTION_MOVE_DOWN},
+        {caption(pgettext("fpv","Vehicle"),ACTION_CONTROL_VEHICLE),ACTION_CONTROL_VEHICLE},
+        {caption(pgettext("fpv","Bionics"),ACTION_BIONICS),ACTION_BIONICS},
+        {caption(pgettext("fpv","Mutations"),ACTION_MUTATIONS),ACTION_MUTATIONS}};
     const int button_h=std::max(28,fh+12);
     int rows=1, row_used=0;
     for( const auto &a : actions ) {
@@ -3190,7 +3193,12 @@ static void CheckMessages()
     using cata::options::mouse;
 
     while( SDL_PollEvent( &ev ) ) {
-        imclient->process_input( &ev );
+        const bool fpv_press=ev.type==SDL_MOUSEBUTTONDOWN && first_person::enabled &&
+            first_person::gameplay_input && (ev.button.button==SDL_BUTTON_LEFT || ev.button.button==SDL_BUTTON_RIGHT);
+        const bool fpv_release=ev.type==SDL_MOUSEBUTTONUP &&
+            (first_person::swallowed_mouse_buttons & SDL_BUTTON(ev.button.button));
+        // Native ImGui menus must not inherit the HUD press/release which opened them.
+        if(!fpv_press && !fpv_release)imclient->process_input( &ev );
         switch( ev.type ) {
             case SDL_WINDOWEVENT:
                 switch( ev.window.event ) {
@@ -3511,7 +3519,10 @@ static void CheckMessages()
                         // Never fall through into top-down movement/attack for an empty gaze target.
                         handled=true;
                     }
-                    if( handled || first_person::inventory_open ) { break; }
+                    if( handled || first_person::inventory_open ) {
+                        first_person::swallowed_mouse_buttons |= SDL_BUTTON(ev.button.button);
+                        break;
+                    }
                 }
                 if( ! mouse.enabled ) {
                     break;
@@ -3533,6 +3544,10 @@ static void CheckMessages()
                 break;
 
             case SDL_MOUSEBUTTONUP:
+                if( first_person::swallowed_mouse_buttons & SDL_BUTTON(ev.button.button) ) {
+                    first_person::swallowed_mouse_buttons &= ~SDL_BUTTON(ev.button.button);
+                    break;
+                }
                 if( ! mouse.enabled ) {
                     break;
                 }

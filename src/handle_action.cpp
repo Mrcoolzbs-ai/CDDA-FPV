@@ -2596,6 +2596,29 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
 #if defined(TILES)
             if(first_person::enabled) {
                 using namespace first_person;
+                const auto item_context = [&]( item_location loc ) {
+                    if( !loc ) { return; }
+                    if( player_character.has_item( *loc ) ) {
+                        inventory_open=false;
+                        inventory_item_menu(loc);
+                        inventory_open=true;
+                    } else {
+                        uilist menu; menu.text=loc->tname();
+                        menu.addentry(0,true,'g',pgettext("fpv","Take"));
+                        menu.addentry(1,true,'w',pgettext("fpv","Wield"));
+                        menu.addentry(2,true,'W',pgettext("fpv","Wear"));
+                        menu.addentry(3,true,'a',pgettext("fpv","Use"));
+                        menu.addentry(4,!loc->get_contents().get_all_standard_pockets().empty(),'o',pgettext("fpv","Expand"));
+                        menu.addentry(5,true,'i',pgettext("fpv","Item information"));
+                        menu.query();
+                        if(menu.ret==0) { player_character.pick_up(drop_locations{{loc,0}}); }
+                        else if(menu.ret==1) { player_character.wield(loc); }
+                        else if(menu.ret==2) { player_character.wear(loc); }
+                        else if(menu.ret==3) { player_character.use(loc); }
+                        else if(menu.ret==4) { toggle_container(loc); }
+                        else if(menu.ret==5) { popup(loc->info(true)); }
+                    }
+                };
                 std::string cmd; cmd.swap(ui_command);
                 if(cmd.empty()) { inventory_open=!inventory_open; }
                 else if(cmd=="close") { inventory_open=false; }
@@ -2614,7 +2637,7 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                        !selected_item->get_contents().get_all_standard_pockets().empty())toggle_container(selected_item);
                     else if(selected_item && cmd.rfind("row:",0)!=0) {
                         if((selected_side==0 || cell_reachable) && item_accessible(selected_item)) {
-                            inventory_open=false;inventory_item_menu(selected_item);
+                            item_context(selected_item);
                         } else inventory_notice=pgettext("fpv","Cell is out of reach or its container is sealed.");
                     }
                 } else if(cmd=="prev0") { inventory_page=std::max(0,inventory_page-1); }
@@ -2651,7 +2674,7 @@ bool game::do_regular_action( action_id &act, avatar &player_character,
                             item_location loc=locations[selected_row];
                             if(cmd=="expand")toggle_container(loc);
                             else if(!item_accessible(loc)) { inventory_notice=pgettext("fpv","Cell is out of reach or its container is sealed."); }
-                            else if(cmd=="item_menu") { inventory_open=false;inventory_item_menu(loc); }
+                            else if(cmd=="item_menu") { item_context(loc); }
                             else if(cmd=="take" && selected_side==1) {
                                 player_character.pick_up(drop_locations{{loc,0}}); inventory_open=false;
                             } else if(cmd=="put" && selected_side==0) {
@@ -3241,7 +3264,7 @@ bool game::handle_action()
                 first_person::inventory_open=false; first_person::has_selected_target=false;
                 first_person::mouse_locked = false;
                 SDL_SetRelativeMouseMode(SDL_FALSE);
-            } else if( veh_ctrl || player_character.is_mounted() ||
+            } else if( player_character.is_mounted() ||
                        player_character.is_dead_state() ) {
                 add_msg( m_info, pgettext("fpv", "First-person prototype: on foot only.") );
                 return false;
@@ -3265,7 +3288,7 @@ bool game::handle_action()
             invalidate_main_ui_adaptor();
             return false;
         }
-        if( first_person::enabled && !veh_ctrl ) {
+        if( first_person::enabled ) {
             if(act==ACTION_FPV_INTERACT || act==ACTION_FPV_CONTEXT || act==ACTION_EXAMINE ||
                act==ACTION_EXAMINE_AND_PICKUP || act==ACTION_PICKUP || act==ACTION_PICKUP_ALL ||
                act==ACTION_OPEN || act==ACTION_CLOSE || act==ACTION_SMASH) {
@@ -3290,10 +3313,13 @@ bool game::handle_action()
                     menu.addentry(13,true,'D',pgettext("fpv","Disassemble"));
                     menu.addentry(14,true,'B',pgettext("fpv","Butcher / salvage"));
                     menu.addentry(15,true,'m',pgettext("fpv","All actions..."));
+                    menu.addentry(16,true,'^',pgettext("fpv","Vehicle control"));
+                    menu.addentry(17,true,'b',pgettext("fpv","Bionics"));
+                    menu.addentry(18,true,'M',pgettext("fpv","Mutations"));
                     menu.query();if(menu.ret<0)return false;
                     if(menu.ret>=10) {
-                        const action_id global[]={ACTION_USE,ACTION_CONSTRUCT,ACTION_CRAFT,ACTION_DISASSEMBLE,ACTION_BUTCHER,ACTION_ACTIONMENU};
-                        if(menu.ret<=15)pending_action=action_ident(global[menu.ret-10]);
+                        const action_id global[]={ACTION_USE,ACTION_CONSTRUCT,ACTION_CRAFT,ACTION_DISASSEMBLE,ACTION_BUTCHER,ACTION_ACTIONMENU,ACTION_CONTROL_VEHICLE,ACTION_BIONICS,ACTION_MUTATIONS};
+                        if(menu.ret<=18)pending_action=action_ident(global[menu.ret-10]);
                         invalidate_main_ui_adaptor();return false;
                     }
                     const char *local[]={"interact","pickup","open","close","attack","smash"};
@@ -3338,7 +3364,7 @@ bool game::handle_action()
                act==ACTION_MOVE_UP || act==ACTION_MOVE_DOWN)) {
                 first_person::inventory_open=false; first_person::has_selected_target=false;
             }
-            if( act == ACTION_MOVE_LEFT || act == ACTION_MOVE_RIGHT ) {
+            if( !veh_ctrl && ( act == ACTION_MOVE_LEFT || act == ACTION_MOVE_RIGHT ) ) {
                 first_person::turn(act == ACTION_MOVE_RIGHT ? 1 : -1);
                 if( get_option<bool>("FPV_LINK_SPRITE") ) {
                     const int f=first_person::facing;
@@ -3349,14 +3375,14 @@ bool game::handle_action()
                 invalidate_main_ui_adaptor();
                 return false; // 45-degree camera turns are free, like looking around
             }
-            if( act == ACTION_MOVE_FORTH || act == ACTION_MOVE_BACK ) {
+            if( !veh_ctrl && ( act == ACTION_MOVE_FORTH || act == ACTION_MOVE_BACK ) ) {
                 const int sign = act == ACTION_MOVE_FORTH ? 1 : -1;
                 const int f = first_person::facing;
                 act = get_movement_action_from_delta(
                           tripoint_rel_ms( sign * first_person::dx[f], sign * first_person::dy[f], 0 ),
                           iso_rotate::yes );
-            } else if( act == ACTION_MOVE_FORTH_RIGHT || act == ACTION_MOVE_FORTH_LEFT ||
-                       act == ACTION_MOVE_BACK_RIGHT || act == ACTION_MOVE_BACK_LEFT ) {
+            } else if( !veh_ctrl && ( act == ACTION_MOVE_FORTH_RIGHT || act == ACTION_MOVE_FORTH_LEFT ||
+                       act == ACTION_MOVE_BACK_RIGHT || act == ACTION_MOVE_BACK_LEFT ) ) {
                 const int offset = act == ACTION_MOVE_FORTH_RIGHT ? 1 :
                                    act == ACTION_MOVE_BACK_RIGHT ? 3 :
                                    act == ACTION_MOVE_BACK_LEFT ? 5 : 7;

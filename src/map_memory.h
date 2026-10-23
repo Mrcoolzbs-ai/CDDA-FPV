@@ -23,6 +23,8 @@ class memorized_tile
 {
     public:
         char32_t symbol = 0;
+        // -1 unknown (old saves), 0 open sky, 1 observed ceiling. Never reveals hidden live tiles.
+        int8_t fpv_ceiling = -1;
 
         const std::string &get_ter_id() const;
         const std::string &get_dec_id() const;
@@ -143,6 +145,7 @@ class map_memory
          * Memorizes terrain at \p pos, overwriting old terrain values.
          * @param pos tile position, in global ms coords.
          */
+        void set_fpv_ceiling( const tripoint_abs_ms &pos, bool present );
         void set_tile_terrain( const tripoint_abs_ms &pos, std::string_view id,
                                int subtile, int rotation );
 

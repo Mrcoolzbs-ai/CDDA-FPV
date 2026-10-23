@@ -189,7 +189,7 @@ void memorized_tile::set_dec_subtile( int subtile )
 
 bool memorized_tile::operator==( const memorized_tile &rhs ) const
 {
-    return symbol == rhs.symbol &&
+    return fpv_ceiling == rhs.fpv_ceiling && symbol == rhs.symbol &&
            ter_rotation == rhs.ter_rotation &&
            dec_rotation == rhs.dec_rotation &&
            ter_subtile == rhs.ter_subtile &&
@@ -213,6 +213,16 @@ const memorized_tile &map_memory::get_tile( const tripoint_abs_ms &pos ) const
     const coord_pair p( pos );
     const mm_submap &sm = get_submap( p.sm );
     return sm.get_tile( p.loc );
+}
+
+void map_memory::set_fpv_ceiling( const tripoint_abs_ms &pos, bool present )
+{
+    const coord_pair p( pos );
+    mm_submap &sm = get_submap( p.sm );
+    if( !sm.is_valid() ) { return; }
+    memorized_tile mt = sm.get_tile( p.loc );
+    mt.fpv_ceiling = present ? 1 : 0;
+    sm.set_tile( p.loc, mt );
 }
 
 void map_memory::set_tile_terrain( const tripoint_abs_ms &pos, std::string_view id,

@@ -265,6 +265,11 @@ const memorized_tile &avatar::get_memorized_tile( const tripoint_abs_ms &p ) con
     return mm_submap::default_tile;
 }
 
+void avatar::memorize_fpv_ceiling( const tripoint_abs_ms &p, bool present )
+{
+    player_map_memory->set_fpv_ceiling( p, present );
+}
+
 void avatar::memorize_terrain( const tripoint_abs_ms &p, std::string_view id,
                                int subtile, int rotation )
 {

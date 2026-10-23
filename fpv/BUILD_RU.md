@@ -1,4 +1,4 @@
-## Автоматическая Windows-сборка 0.6
+## Автоматическая Windows-сборка 0.7
 
 Workflow `.github/workflows/fpv-windows.yml` собирает игру на Windows 2022 / MSYS2 MINGW64 с русским каталогом, запускает синтетические тесты и прикладывает portable ZIP к запуску Actions. Ручной запуск: Actions → FPV Windows x64 → Run workflow. Пакет содержит свежий EXE, data/gfx, русский MO, настройки и все рекурсивно найденные DLL. Необнаруженная зависимость останавливает упаковку. BUILD.json содержит коммит и SHA-256 EXE. На GitHub Release архив публикуется отдельно, после успешной сборки.
 

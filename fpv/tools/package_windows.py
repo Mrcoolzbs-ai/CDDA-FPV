@@ -58,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='fpv-package-') as tmp:
                     shutil.copytree(d,licenses/d.name,dirs_exist_ok=True)
     (dest/'START-CDDA-FPV.bat').write_bytes(b'@echo off\r\ncd /d "%~dp0"\r\nstart "" cataclysm-tiles.exe\r\n')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-    manifest={'version':'0.6.0-ru','commit':commit,'exe_sha256':hashlib.sha256((dest/'cataclysm-tiles.exe').read_bytes()).hexdigest(),'dlls':sorted(copied)}
+    manifest={'version':'0.7.0-ru','commit':commit,'exe_sha256':hashlib.sha256((dest/'cataclysm-tiles.exe').read_bytes()).hexdigest(),'dlls':sorted(copied)}
     (dest/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')
     a.output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(a.output,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:

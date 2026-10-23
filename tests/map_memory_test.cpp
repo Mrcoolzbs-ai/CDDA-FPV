@@ -8,6 +8,8 @@
 #include "lru_cache.h"
 #include "map.h"
 #include "map_memory.h"
+#include "json.h"
+#include "json_loader.h"
 #include "map_scale_constants.h"
 #include "point.h"
 
@@ -120,6 +122,34 @@ TEST_CASE( "map_memory_forgets", "[map_memory]" )
     CHECK( mt.get_dec_id().empty() );
     CHECK( mt.get_dec_subtile() == 0 );
     CHECK( mt.get_dec_rotation() == 0 );
+}
+
+TEST_CASE( "fpv_ceiling_memory_roundtrip", "[map_memory][fpv]" )
+{
+    mm_submap original;
+    memorized_tile tile;
+    tile.set_ter_id("t_floor");
+    tile.fpv_ceiling=1;
+    original.set_tile(point_sm_ms(0,0),tile);
+    tile.fpv_ceiling=0;
+    tile.set_dec_id("f_chair");
+    tile.set_dec_rotation(3);
+    original.set_tile(point_sm_ms(1,0),tile);
+    // A third run must reset optional fields, not inherit the previous run's ceiling.
+    tile.fpv_ceiling=-1;tile.set_dec_id("");tile.set_dec_rotation(0);
+    original.set_tile(point_sm_ms(2,0),tile);
+    std::ostringstream stream;JsonOut out(stream);original.serialize(out);
+    mm_submap restored;
+    restored.deserialize(1,json_loader::from_string(stream.str()));
+    CHECK(restored.get_tile(point_sm_ms(0,0)).fpv_ceiling==1);
+    CHECK(restored.get_tile(point_sm_ms(0,0)).get_dec_id().empty());
+    CHECK(restored.get_tile(point_sm_ms(1,0)).fpv_ceiling==0);
+    CHECK(restored.get_tile(point_sm_ms(1,0)).get_dec_rotation()==3);
+    CHECK(restored.get_tile(point_sm_ms(2,0)).fpv_ceiling==-1);
+    CHECK(restored.get_tile(point_sm_ms(3,0)).fpv_ceiling==-1);
+    const std::string old="[["+std::to_string(SEEX*SEEY)+",0,\"t_floor\",0,0]]";
+    mm_submap legacy;legacy.deserialize(1,json_loader::from_string(old));
+    CHECK(legacy.get_tile(point_sm_ms(0,0)).fpv_ceiling==-1);
 }
 
 // TODO: map memory save / load

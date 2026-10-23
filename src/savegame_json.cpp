@@ -4032,11 +4032,12 @@ void mm_submap::serialize( JsonOut &jsout ) const
         jsout.write( last.ter_id );
         jsout.write( static_cast<int>( last.ter_subtile ) );
         jsout.write( static_cast<int>( last.ter_rotation ) );
-        if( !last.get_dec_id().empty() ) {
+        if( !last.get_dec_id().empty() || last.fpv_ceiling >= 0 ) {
             jsout.write( last.dec_id );
             jsout.write( static_cast<int>( last.dec_subtile ) );
             jsout.write( static_cast<int>( last.dec_rotation ) );
         }
+        if( last.fpv_ceiling >= 0 ) { jsout.write( static_cast<int>( last.fpv_ceiling ) ); }
         jsout.end_array();
     };
 
@@ -4110,6 +4111,7 @@ void mm_submap::deserialize( int version, const JsonArray &ja )
                     tile.set_ter_id( ja_tile.get_string( 2 ) );
                     tile.ter_subtile = ja_tile.get_int( 3 );
                     tile.ter_rotation = ja_tile.get_int( 4 );
+                    tile.fpv_ceiling = ja_tile.size() > 8 ? ( ja_tile.get_int( 8 ) == 1 ? 1 : 0 ) : -1;
                     if( ja_tile.size() > 5 ) {
                         tile.set_dec_id( ja_tile.get_string( 5 ) );
                         tile.dec_subtile = ja_tile.get_int( 6 );

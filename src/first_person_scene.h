@@ -28,6 +28,13 @@ inline const image &water_texture() {
             im.pixels[y*32+x]=0xff000000|((52+n)<<16)|((93+n)<<8)|(104+n);
         }return im;}();return tex;
 }
+inline const image &curtain_texture() {
+    static const image tex=[] {image im;im.w=32;im.h=32;im.pixels.resize(1024);
+        for(int y=0;y<32;++y)for(int x=0;x<32;++x) {
+            const unsigned fold=static_cast<unsigned>(18+17*std::cos(x*pi/4));
+            im.pixels[y*32+x]=0xff000000|((143+fold)<<16)|((131+fold)<<8)|(102+fold);
+        }return im;}();return tex;
+}
 // Procedural meshes use distinct horizontal, vertical and front materials.
 // Existing top-down tiles are not stretched over all six faces.
 struct model {
@@ -107,10 +114,30 @@ struct model {
             for(double z:{.15,.65,1.15,1.7})box({-.43,-.4,z},{.43,.4,z+.05},0xff81705b,&wood_texture());
             return 1.75;
         }
-        if(has("bed")||has("sofa")||has("couch")) {
-            box({-.47,-.47,.1},{.47,.47,.36},0xff624b38);
-            box({-.44,-.43,.36},{.44,.43,.57},0xffc3bba2);
-            box({-.47,.4,.35},{.47,.47,has("bed")?.85:1.1},0xff796a54);
+        if(has("bed") || has("cot") || has("mattress")) {
+            const bool mattress=has("mattress"),bunk=has("bunk");
+            const auto layer=[&](double z) {
+                if(!mattress) {
+                    for(double x:{-.39,.33})for(double y:{-.43,.37})
+                        box({x,y,.02},{x+.06,y+.06,z+.12},0xff67513c);
+                    box({-.43,-.49,z+.08},{.43,.49,z+.18},0xff80654b,&wood_texture());
+                    box({-.43,.44,z+.12},{.43,.49,z+.72},0xff70553e,&wood_texture());
+                }
+                // Cloth mattress, folded blanket and a separate pillow at the head.
+                box({-.40,-.46,z+.18},{.40,.43,z+.34},0xffd4cdb8);
+                box({-.405,-.46,z+.34},{.405,.15,z+.365},0xff637d8c);
+                box({-.405,.09,z+.36},{.405,.15,z+.40},0xff889ba6);
+                box({-.31,.20,z+.34},{.31,.40,z+.43},0xffe8e0c9);
+            };
+            layer(mattress?-.16:.1);
+            if(bunk) {layer(1.35);for(double x:{-.44,.40})box({x,-.48,.02},{x+.04,.48,2.15},0xff626a6c);}
+            return mattress?.2:.47;
+        }
+        if(has("sofa") || has("couch")) {
+            legs(.25);box({-.48,-.42,.20},{.48,.44,.42},0xff4f5954);
+            for(double x:{-.41,.02})box({x,-.36,.42},{x+.39,.32,.57},0xff82918a);
+            box({-.47,.31,.48},{.47,.46,1.02},0xff6e8077);
+            for(double x:{-.48,.36})box({x,-.4,.38},{x+.12,.42,.76},0xff65786f);
             return .57;
         }
         if(has("chair")||has("bench")||has("stool")) {

@@ -1950,8 +1950,9 @@ void cata_tiles::draw( const point &dest, const tripoint_bub_ms &center, int wid
     }
 
     // Keep the normal draw first: map memory, caches and animations still run.
-    if( first_person::enabled && center == you.pos_bub( here ) &&
-        you.view_offset == tripoint_rel_ms::zero && !fpv_tactical_overlay ) {
+    if( first_person::enabled && !fpv_tactical_overlay &&
+        ((center == you.pos_bub(here) && you.view_offset == tripoint_rel_ms::zero) ||
+         (you.in_vehicle && center == you.pos_bub(here) + you.view_offset)) ) {
         overlay_strings.clear();
         color_blocks.second.clear();
         draw_first_person( dest, width, height );
@@ -2131,23 +2132,46 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     const ter_t &ter=remembered.obj();
                     const auto *tex=material(id,TILE_CATEGORY::TERRAIN);
                     const bool tree=ter.has_flag(ter_furn_flag::TFLAG_TREE);
-                    const bool wall=ter.has_flag(ter_furn_flag::TFLAG_WALL) ||
-                        (ter.has_flag(ter_furn_flag::TFLAG_DOOR) && !ter.has_flag(ter_furn_flag::TFLAG_TRANSPARENT));
+                    const bool remembered_window=ter.has_flag(ter_furn_flag::TFLAG_WINDOW);
+                    const bool wall=!remembered_window && (ter.has_flag(ter_furn_flag::TFLAG_WALL) ||
+                        (ter.has_flag(ter_furn_flag::TFLAG_DOOR) && !ter.has_flag(ter_furn_flag::TFLAG_TRANSPARENT)));
                     if(wall)fpv_raster.box({double(x),double(y),base},{x+1.,y+1.,base+3},tex,0xff77736a,.48,-1);
                     else {
                         if(!ter.has_flag(ter_furn_flag::TFLAG_NO_FLOOR))
                             floor(x,y,x+1.,y+1.,base,tree?material("t_grass",TILE_CATEGORY::TERRAIN):tex,.48,-1);
+                        if(remembered_window) {
+                            first_person::model frame{fpv_raster,{x+.5,y+.5,base},(memory.get_ter_rotation()%2)*first_person::pi/2,.48,-1};
+                            frame.box({-.5,-.06,0},{.5,.06,.78},0xff887b63);
+                            for(double X:{-.5,.44})frame.box({X,-.06,.78},{X+.06,.06,2.78},0xff887b63);
+                            frame.box({-.5,-.06,2.72},{.5,.06,2.78},0xff887b63);
+                            const std::array<vec3,4> pane={{frame.at({-.44,0,.84}),frame.at({.44,0,.84}),
+                                frame.at({.44,0,2.72}),frame.at({-.44,0,2.72})}};
+                            if(!ter.has_flag(ter_furn_flag::TFLAG_TRANSPARENT))
+                                fpv_raster.quad(pane,id.find("curtain")!=std::string::npos?&first_person::curtain_texture():&first_person::wood_texture(),0xffb6aa8d,.48,false,-1);
+                            else fpv_raster.transparent_quad(pane,0xff91b9c6,-1);
+                        }
+                        if(memory.fpv_ceiling==1)fpv_raster.quad({{{double(x),double(y),base+3},{double(x),y+1.,base+3},
+                            {x+1.,y+1.,base+3},{x+1.,double(y),base+3}}},nullptr,0xffb9b5a8,.34,false,-1);
                         if(tree)fpv_raster.billboard({x+.5,y+.5,base},.95,2.4,material(id,TILE_CATEGORY::TERRAIN,0,true),0xff626e46,.48,-1);
                         if(decor.rfind("f_",0)==0) {
-                            first_person::model object{fpv_raster,{x+.5,y+.5,base},0,.48,-1};
+                            first_person::model object{fpv_raster,{x+.5,y+.5,base},((memory.get_dec_rotation()<4?memory.get_dec_rotation():0)+2)*first_person::pi/2,.48,-1};
                             object.furniture(decor,material(decor,TILE_CATEGORY::FURNITURE,0,true),false);
                         }
                     }
                     continue;
                 }
-                you.memorize_terrain(here.get_abs(p),here.ter(p).id().str(),0,0);
+                const auto &known=you.get_memorized_tile(here.get_abs(p));
+                you.memorize_terrain(here.get_abs(p),here.ter(p).id().str(),known.get_ter_subtile(),known.get_ter_rotation());
+                int furn_rotation=0,furn_subtile=0;
+                if(here.has_furn(p)) {
+                    const furn_id f=here.furn(p);
+                    const std::array<int,4> neighbors={{here.furn(p+point::south).to_i(),here.furn(p+point::east).to_i(),
+                        here.furn(p+point::west).to_i(),here.furn(p+point::north).to_i()}};
+                    if(f.obj().connect_to_groups.any())get_furn_connect_values(p,furn_subtile,furn_rotation,f.obj().connect_to_groups,f.obj().rotate_to_groups,{});
+                    else get_tile_values_with_ter(p,f.to_i(),neighbors,furn_subtile,furn_rotation,f.obj().rotate_to_groups);
+                }
                 // Do not overwrite stored vehicle/trap memory as a side effect of drawing furniture.
-                if(here.has_furn(p))you.memorize_decoration(here.get_abs(p),here.furn(p).id().str(),0,0);
+                if(here.has_furn(p))you.memorize_decoration(here.get_abs(p),here.furn(p).id().str(),furn_subtile,furn_rotation);
                 else you.memorize_clear_decoration(here.get_abs(p),"f_");
                 const bool low = here.get_cache_ref(z).visibility_cache[x][y] == lit_level::LOW;
                 const double light = low ? .45 : 1.0;
@@ -2167,7 +2191,9 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     (terrain_id.find("glass")!=std::string::npos) && terrain.movecost==0;
                 const bool glass=glass_wall || (window && here.is_transparent(p) && terrain.movecost==0 &&
                     !here.has_flag(ter_furn_flag::TFLAG_PERMEABLE,p));
-                const bool frame=(window && here.is_transparent(p)) || glass_wall;
+                const bool frame=window || glass_wall;
+                const bool opaque_window=window && !here.is_transparent(p);
+                const bool curtain=opaque_window && terrain_id.find("curtain")!=std::string::npos;
                 const bool wall = !frame && ((window && !here.is_transparent(p)) || here.has_flag(ter_furn_flag::TFLAG_WALL,p) ||
                                   ( here.has_flag(ter_furn_flag::TFLAG_DOOR,p) && !here.is_transparent(p) ));
                 // Live fields use the real map entries and intensity. Animation is purely visual.
@@ -2224,9 +2250,11 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     }
                 }
                 const tripoint_bub_ms above(x,y,z+1);
-                if(z<OVERMAP_HEIGHT && here.inbounds(above) && here.has_floor(above) &&
+                const bool observed_ceiling=z<OVERMAP_HEIGHT && here.inbounds(above) && here.has_floor(above) &&
                    !here.has_flag(ter_furn_flag::TFLAG_NO_FLOOR,above) &&
-                   !here.has_flag(ter_furn_flag::TFLAG_GOES_DOWN,above)) {
+                   !here.has_flag(ter_furn_flag::TFLAG_GOES_DOWN,above);
+                you.memorize_fpv_ceiling(here.get_abs(p),observed_ceiling);
+                if(observed_ceiling) {
                     // The visible room's ceiling underside is not the upstairs room's private texture.
                     // Draw it even when the upper tile is not itself visible to the avatar.
                     fpv_raster.quad({{{double(x),double(y),base+3},{double(x),y+1.,base+3},
@@ -2265,13 +2293,14 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     framed_box(0,sill,.06,top); framed_box(.94,sill,1,top);
                     framed_box(0,sill,1,sill+.06); framed_box(0,top-.06,1,top);
                     if(window && sill>0) { framed_box(0,0,1,sill); }
-                    if(glass) {
+                    if(glass || opaque_window) {
                         const std::array<vec3,4> pane=east_west ?
                             std::array<vec3,4>{{{x+.06,y+.5,base+sill+.06},{x+.94,y+.5,base+sill+.06},
                                 {x+.94,y+.5,base+top-.06},{x+.06,y+.5,base+top-.06}}} :
                             std::array<vec3,4>{{{x+.5,y+.06,base+sill+.06},{x+.5,y+.94,base+sill+.06},
                                 {x+.5,y+.94,base+top-.06},{x+.5,y+.06,base+top-.06}}};
-                        fpv_raster.transparent_quad(pane,0xff91b9c6,tile_target);
+                        if(opaque_window)fpv_raster.quad(pane,curtain?&first_person::curtain_texture():&first_person::wood_texture(),0xffb6aa8d,light,false,tile_target);
+                        else fpv_raster.transparent_quad(pane,0xff91b9c6,tile_target);
                     }
                 } else if(terrain_id=="t_tarptent" || terrain_id.find("improvised_shelter")!=std::string::npos) {
                     first_person::model tent{fpv_raster,{x+.5,y+.5,base},0,light,tile_target};
@@ -2306,7 +2335,7 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                     const auto *furn_image=material(furn.id.str(),TILE_CATEGORY::FURNITURE,seed,true);
                     if(furn.id.str().find("bush")!=std::string::npos || furn.id.str().find("fern")!=std::string::npos ||
                        furn.id.str().find("grass")!=std::string::npos)furn_image=&bush_sprite;
-                    first_person::model object{fpv_raster,{x+.5,y+.5,base},0,light,tile_target};
+                    first_person::model object{fpv_raster,{x+.5,y+.5,base},((furn_rotation<4?furn_rotation:0)+2)*first_person::pi/2,light,tile_target};
                     if(furn.id.str().find("canvas_wall")!=std::string::npos || furn.id.str().find("canvas_door")!=std::string::npos) {
                         const auto fabric=[&](int X,int Y){const tripoint_bub_ms q(X,Y,z);return here.inbounds(q) &&
                             here.furn(q).id().str().find("canvas")!=std::string::npos;};
@@ -2317,41 +2346,78 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
                 }
                 if( const optional_vpart_position vp=here.veh_at(p) ) {
                     vehicle &veh=vp->vehicle();
-                    first_person::model car{fpv_raster,{x+.5,y+.5,base},units::to_radians(veh.face.dir()),light,tile_target};
-                    const vpart_display display=veh.get_display_of_tile(vp->mount_pos());
-                    const auto *top=display.id.is_null()?nullptr:material("vp_"+display.id.str(),TILE_CATEGORY::VEHICLE_PART,seed);
+                    const auto mount=vp->mount_pos();
+                    const double angle=units::to_radians(veh.face.dir());
+                    const auto anchor=veh.mount_to_tripoint(&here,point_rel_ms(0,0));
+                    // One common continuous mount-space transform: diagonal vehicles do not break into rotated cubes.
+                    first_person::model car{fpv_raster,{anchor.x()+.5+mount.x()*std::cos(angle)-mount.y()*std::sin(angle),
+                        anchor.y()+.5+mount.x()*std::sin(angle)+mount.y()*std::cos(angle),base},angle,light,tile_target};
+                    const auto structure=[&](int X,int Y) {
+                        for(int n:veh.parts_at_relative(mount+point_rel_ms(X,Y),true)) {
+                            const auto &q=veh.part(n);
+                            if(!q.removed && (q.info().has_flag("STRUCTURE") || q.info().location=="structure"))return true;
+                        }return false;
+                    };
+                    const bool front=!structure(1,0),rear=!structure(-1,0),left=!structure(0,-1),right=!structure(0,1);
                     bool chassis=false;
-                    for(const int part_index:veh.parts_at_relative(vp->mount_pos(),true)) {
+                    const auto own_vp=here.veh_at(origin);
+                    const bool inside=you.in_vehicle && own_vp && &own_vp->vehicle()==&veh;
+                    for(const int part_index:veh.parts_at_relative(mount,true)) {
                         const vehicle_part &part=veh.part(part_index);
                         if(part.removed || part.is_broken())continue;
                         const vpart_info &info=part.info();
                         if(info.has_flag("STRUCTURE") || info.location=="structure")chassis=true;
-                        if(info.has_flag("WHEEL"))car.wheel({0,0,.36});
-                        if(info.has_flag("BOARDABLE")) {
-                            car.box({-.36,-.35,.35},{.36,.35,.65},0xff4b555b,top);
-                            car.box({-.4,-.35,.65},{-.28,.35,1.32},0xff525b60);
+                        if(info.has_flag("WHEEL")) {
+                            const double side=left?-.47:right?.47:0;
+                            car.wheel({0,side,.35},.33,.22);
+                            car.box({-.41,side-.14,.62},{.41,side+.14,.68},0xff53636b);
                         }
-                        if(info.has_flag("ROOF"))car.box({-.5,-.5,1.92},{.5,.5,2.02},0xff7f8a91,top);
+                        if(info.has_flag("BOARDABLE")) {
+                            car.box({-.30,-.32,.28},{.30,.32,.48},0xff293338);
+                            car.box({-.29,-.31,.48},{.29,.31,.65},0xff737b77);
+                            car.box({-.40,-.31,.60},{-.28,.31,1.32},0xff65716f);
+                            car.box({-.40,-.21,1.32},{-.28,.21,1.51},0xff586662);
+                        }
+                        if(info.has_flag("ROOF") && !inside)car.box({-.5,-.5,1.91},{.5,.5,2.01},0xff89979d);
                         if(info.has_flag("CARGO")) {
-                            car.box({-.45,-.45,.25},{.45,.45,.32},0xff595e60,top);
-                            for(double yedge:{-.47,.43})car.box({-.47,yedge,.32},{.47,yedge+.04,.72},0xff727a7d);
+                            car.box({-.46,-.45,.27},{.46,.45,.32},0xff51595b);
                             support=.32;
                         }
-                        if(info.has_flag("ENGINE"))car.box({-.4,-.4,.3},{.4,.4,.85},0xff505458,top);
+                        if(info.has_flag("ENGINE")) {
+                            car.box({-.38,-.35,.3},{.38,.35,.70},0xff43494b);
+                            car.box({-.45,-.46,.73},{.45,.46,.80},0xff7b8c92);
+                        }
+                        if(info.has_flag("CONTROLS")) {
+                            car.box({.30,-.4,.82},{.47,.4,1.01},0xff354145);
+                            car.box({.19,-.13,.90},{.24,.13,.95},0xff202a2d);
+                        }
                         if((info.has_flag("OBSTACLE") || info.has_flag("WINDOW")) && !part.open) {
-                            // A thin body panel, not a full tile-sized cube. Windows have actual clear panes.
                             const bool window=info.has_flag("WINDOW") && !info.has_flag("OPAQUE");
-                            car.box({-.48,-.06,.3},{.48,.06,window?.9:1.6},0xff75848b,top);
-                            if(window) {
-                                car.box({-.48,-.045,.9},{-.43,.045,1.9},0xff59666e);
-                                car.box({.43,-.045,.9},{.48,.045,1.9},0xff59666e);
-                                car.box({-.48,-.045,1.85},{.48,.045,1.92},0xff59666e);
-                                fpv_raster.transparent_quad({{car.at({-.43,0,.9}),car.at({.43,0,.9}),
-                                    car.at({.43,0,1.85}),car.at({-.43,0,1.85})}},0xffa4c9d3,tile_target,.22);
-                            }
+                            // Boundary panels follow the hull; interior windscreens span the longitudinal axis.
+                            const auto panel=[&](double turn,double offset) {
+                                first_person::model face=car;face.angle+=turn;
+                                face.origin=car.at({std::cos(turn)*offset,std::sin(turn)*offset,0});
+                                face.box({-.035,-.5,.29},{.035,.5,.91},0xff71858d);
+                                if(window) {
+                                    for(double yedge:{-.49,.45})face.box({-.035,yedge,.90},{.035,yedge+.04,1.87},0xff485c65);
+                                    face.box({-.035,-.5,1.83},{.035,.5,1.91},0xff526875);
+                                    fpv_raster.transparent_quad({{face.at({0,-.45,.92}),face.at({0,.45,.92}),
+                                        face.at({0,.45,1.83}),face.at({0,-.45,1.83})}},0xff95beca,tile_target,.18);
+                                } else face.box({-.035,-.5,.91},{.035,.5,1.65},0xff7d9097);
+                                face.box({.037,-.15,.82},{.055,.08,.85},0xffc7cdd0);
+                            };
+                            if(left)panel(-first_person::pi/2,.47);
+                            if(right)panel(first_person::pi/2,.47);
+                            if(front)panel(0,.47);
+                            if(rear)panel(first_person::pi,.47);
+                            if(!front && !rear && !left && !right)panel(0,0);
                         }
                     }
-                    if(chassis || here.has_vehicle_floor(p))car.box({-.5,-.5,.18},{.5,.5,.27},0xff4b5357,top);
+                    if(chassis || here.has_vehicle_floor(p)) {
+                        car.box({-.5,-.5,.18},{.5,.5,.27},0xff414d51);
+                        if(front)car.box({.45,-.49,.25},{.53,.49,.36},0xffa3a8a6);
+                        if(rear)car.box({-.53,-.49,.25},{-.45,.49,.36},0xff7b8280);
+                    }
                 }
                 if( here.sees_some_items(p,you) ) {
                     int i = 0;
@@ -2406,6 +2472,12 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
     first_person::viewport_x=dest.x; first_person::viewport_y=dest.y;
     first_person::viewport_w=width; first_person::viewport_h=height;
     first_person::gaze_id=fpv_raster.center_object();
+    if(first_person::gaze_id>=0 && first_person::gaze_id<static_cast<int>(targets.size()) && !first_person::inventory_open) {
+        const auto &gaze=targets[first_person::gaze_id];
+        std::vector<int> ids;
+        for(size_t i=0;i<targets.size();++i)if(targets[i].x==gaze.x && targets[i].y==gaze.y && targets[i].z==gaze.z)ids.push_back(static_cast<int>(i));
+        first_person::highlight_objects(fpv_raster,ids);
+    }
     first_person::refresh_inventory();
     int tw=0,th=0;
     if( fpv_frame ) { SDL_QueryTexture(fpv_frame.get(),nullptr,nullptr,&tw,&th); }
@@ -2423,7 +2495,7 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
     const int picked=fpv_raster.center_object();
     if( picked >= 0 && picked < static_cast<int>(targets.size()) ) {
         const auto &t=targets[picked];
-        target_label=t.label+" | z="+std::to_string(t.z);
+        target_label=t.label+" | z="+std::to_string(t.z)+" | "+std::to_string(rl_dist(origin,tripoint_bub_ms(t.x,t.y,t.z)))+" m";
         if( t.creature ) {
             const Creature *c=get_creature_tracker().creature_at(tripoint_bub_ms(t.x,t.y,t.z),true);
             if( c && you.sees(here,*c) ) { target_label += std::string(pgettext("fpv", " | HP "))+std::to_string(c->get_hp()); }

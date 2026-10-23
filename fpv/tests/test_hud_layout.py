@@ -47,8 +47,8 @@ struct Font {int width=8,height=16;
  }
 };
 std::unique_ptr<Font> font=std::make_unique<Font>();
-enum action_id {ACTION_PAUSE,ACTION_PICKUP,ACTION_INVENTORY,ACTION_EXAMINE,ACTION_FIRE,ACTION_RELOAD_WIELDED,ACTION_OPEN,ACTION_CLOSE,ACTION_SMASH,ACTION_MOVE_UP,ACTION_MOVE_DOWN};
-std::string action_ident(action_id a) {const char *ids[]={"pause","pickup","inventory","examine","fire","reload","open","close","smash","up","down"};return ids[a];}
+enum action_id {ACTION_PAUSE,ACTION_PICKUP,ACTION_INVENTORY,ACTION_EXAMINE,ACTION_FIRE,ACTION_RELOAD_WIELDED,ACTION_OPEN,ACTION_CLOSE,ACTION_SMASH,ACTION_MOVE_UP,ACTION_MOVE_DOWN,ACTION_CONTROL_VEHICLE,ACTION_BIONICS,ACTION_MUTATIONS};
+std::string action_ident(action_id a) {const char *ids[]={"pause","pickup","inventory","examine","fire","reload","open","close","smash","up","down","vehicle","bionics","mutations"};return ids[a];}
 struct input_event {std::string short_description()const{return "Key";}};
 struct input_context {std::vector<input_event> keys_bound_to(const std::string &)const{return {{}};}};
 input_context get_default_mode_input_context(){return {};}
@@ -83,7 +83,7 @@ int main() {
     if(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y)throw std::runtime_error("Overlapping buttons: "+a.action+" / "+b.action+" width="+std::to_string(width)+" font="+std::to_string(fw));++checks;
    }
   }
-  if(!inventory && buttons.size()!=11)throw std::runtime_error("Missing HUD action");
+  if(!inventory && buttons.size()!=14)throw std::runtime_error("Missing HUD action");
   if(inventory) {
    for(const char *world:{"pause","pickup","examine","open","close","smash","fire","reload","up","down"})
     if(commands.count(world))throw std::runtime_error("World toolbar should not cover inventory");

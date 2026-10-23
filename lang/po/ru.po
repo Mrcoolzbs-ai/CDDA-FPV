@@ -815743,3 +815743,28 @@ msgstr "Антидепрессант (поправка к итогу)"
 msgctxt "fpv"
 msgid "Adverse reaction (total adjustment)"
 msgstr "Побочная реакция (поправка к итогу)"
+
+
+msgctxt "fpv"
+msgid "Vehicle control"
+msgstr "Управление машиной"
+
+
+msgctxt "fpv"
+msgid "Bionics"
+msgstr "Бионика"
+
+
+msgctxt "fpv"
+msgid "Mutations"
+msgstr "Мутации"
+
+
+msgctxt "fpv"
+msgid "Item information"
+msgstr "Информация о предмете"
+
+
+msgctxt "fpv"
+msgid "Vehicle"
+msgstr "Машина"

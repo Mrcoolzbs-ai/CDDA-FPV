@@ -43,10 +43,10 @@ jobs:
           ./test-scene.exe
           python fpv/tests/test_hud_layout.py
       - name: Package portable build
-        run: python fpv/tools/package_windows.py --exe ru-cataclysm-tiles.exe --dll-dir /mingw64/bin --output dist/CDDA-FPV-0.6.0-RU-Windows-x64.zip
+        run: python fpv/tools/package_windows.py --exe ru-cataclysm-tiles.exe --dll-dir /mingw64/bin --output dist/CDDA-FPV-0.7.0-RU-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: CDDA-FPV-0.6.0-RU-Windows-x64
+          name: CDDA-FPV-0.7.0-RU-Windows-x64
           path: dist/*.zip
           compression-level: 0
           retention-days: 30
