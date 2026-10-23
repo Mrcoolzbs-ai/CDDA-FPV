@@ -2071,6 +2071,18 @@ void cata_tiles::draw_first_person( const point &dest, int width, int height )
     map &here = get_map();
     avatar &you = get_avatar();
     const tripoint_bub_ms origin = you.pos_bub( here );
+    static const vehicle *camera_vehicle=nullptr;
+    static double camera_vehicle_angle=0;
+    const auto occupied_vehicle=here.veh_at(origin);
+    if(you.in_vehicle && you.controlling_vehicle && occupied_vehicle) {
+        const vehicle *current=&occupied_vehicle->vehicle();
+        const double angle=units::to_radians(current->face.dir());
+        // Start facing forward; subsequent steering preserves the driver's mouse-look offset.
+        if(camera_vehicle!=current)first_person::yaw=angle+first_person::pi/2;
+        else first_person::yaw=std::remainder(first_person::yaw+angle-camera_vehicle_angle,2*first_person::pi);
+        first_person::facing=first_person::heading(first_person::yaw);
+        camera_vehicle=current;camera_vehicle_angle=angle;
+    } else camera_vehicle=nullptr;
     const int render_width = std::min( width, get_option<int>( "FPV_RENDER_WIDTH" ) );
     const int render_height = std::max( 1, render_width * height / width );
     const double eye_height = you.is_prone() ? .35 : you.is_crouching() ? 1.0 : 1.65;
